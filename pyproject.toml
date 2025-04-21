@@ -1,0 +1,20 @@
+[project]
+name = "mine-guide"
+version = "0.1.0"
+description = "An agent guide in Minecraft."
+authors = [
+    {name = "MeTMD"}
+]
+license = "GPL-3.0"
+readme = "README.md"
+requires-python = ">=3.9,<4"
+dependencies = [
+    "javascript (>=1!1.2,<1!2.0)"
+]
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=2.0"]
+build-backend = "poetry.core.masonry.api"
