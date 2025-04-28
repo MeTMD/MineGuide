@@ -1,13 +1,14 @@
 from javascript import require, On
+from .Data import MineGuideConfig
 
 mineflayer = require("mineflayer")
 pathfinder = require("mineflayer-pathfinder")
 
 
 def main():
-    BOT_USERNAME = "python"
+    config = MineGuideConfig(open("mg.config.env.example"))
 
-    bot = mineflayer.createBot({"host": "127.0.0.1", "port": 25565, "username": BOT_USERNAME})
+    bot = mineflayer.createBot({"host": config.host, "port": config.port, "username": config.username})
 
     bot.loadPlugin(pathfinder.pathfinder)
     print("Started mineflayer")
@@ -20,7 +21,7 @@ def main():
         @On(bot, "chat")
         def handleMsg(this, sender, message, *args):
             print("Got message", sender, message)
-            if sender and (sender != BOT_USERNAME):
+            if sender and (sender != config.username):
                 bot.chat("Hi, you said " + message)
                 if "come" in message:
                     player = bot.players[sender]
