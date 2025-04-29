@@ -1,0 +1,111 @@
+{
+    "meta": {
+        "name": "颐和园南湖",
+        "location": "中国北京"
+    },
+    "anchors": [
+        {
+            "name": "涵虚堂",
+            "alias": [ ],
+            "position": [ -441, 36, -968 ],
+            "description": ""
+        },
+        {
+            "name": "二号房",
+            "alias": [ ],
+            "position": [ -339, 14, -1095 ],
+            "description": ""
+        },
+        {
+            "name": "三号房",
+            "alias": [ ],
+            "position": [ -308, 14, -1100 ],
+            "description": ""
+        },
+        {
+            "name": "四号房",
+            "alias": [ ],
+            "position": [ -286, 14, -1091 ],
+            "description": ""
+        },
+        {
+            "name": "凌霄",
+            "alias": [ ],
+            "position": [ -215, 14, -1071 ],
+            "description": ""
+        },
+        {
+            "name": "镜月",
+            "alias": [ ],
+            "position": [ -216, 14, -983 ],
+            "description": ""
+        },
+        {
+            "name": "广润灵雨桐",
+            "alias": [ ],
+            "position": [ -310, 14, -1027 ],
+            "description": ""
+        },
+        {
+            "name": "云香阁",
+            "alias": [ ],
+            "position": [ -337, 15, -1019 ],
+            "description": ""
+        },
+        {
+            "name": "涵虚堂山门",
+            "alias": [ ],
+            "position": [ -329, 14, -968 ],
+            "description": ""
+        },
+        {
+            "name": "月波楼",
+            "alias": [ ],
+            "position": [ -329, 15, -917 ],
+            "description": ""
+        },
+        {
+            "name": "澹会轩",
+            "alias": [ ],
+            "position": [ -259, 14, -917 ],
+            "description": ""
+        },
+        {
+            "name": "鉴远堂",
+            "alias": [ ],
+            "position": [ -200, 13, -917 ],
+            "description": ""
+        },
+        {
+            "name": "东南房",
+            "alias": [ ],
+            "position": [ -284, 14, -828 ],
+            "description": ""
+        },
+        {
+            "name": "东北房",
+            "alias": [ ],
+            "position": [ -341, 14, -828 ],
+            "description": ""
+        },
+        {
+            "name": "西北房",
+            "alias": [ ],
+            "position": [ -342, 14, -784 ],
+            "description": ""
+        },
+        {
+            "name": "西南房",
+            "alias": [ ],
+            "position": [ -282, 14, -784 ],
+            "description": ""
+        }
+    ],
+    "routes": [
+        {
+            "start": "涵虚堂山门",
+            "end": "镜月",
+            "pathways": [ "涵虚堂" ]
+        }
+    ]
+}
