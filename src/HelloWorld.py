@@ -1,7 +1,9 @@
 from .api.BotAPI import BotAPI
 from .Data import MineGuideConfig
+from .chat.Agent import Agent
 
-def handle_msg(bot: BotAPI, username: str, message: str):
+
+def handle_msg(agent: Agent, bot: BotAPI, username: str, message: str):
     if "where" in message:
         pos = bot.query_self_position()
         print("Currently at", pos)
@@ -15,12 +17,20 @@ def handle_msg(bot: BotAPI, username: str, message: str):
         bot.do_move_to(pos)
     else:
         print(f"{username} said {message}")
+        for sentence in agent.chat(username, message):
+            bot.do_chat(sentence)
 
 def main():
+    print("Loading config")
     config = MineGuideConfig(open("mg.config.env"))
+
+    print("Tuning LLM")
+    agent = Agent(config)
+
+    print("Starting bot")
     bot = BotAPI(config)
-    bot.on_login = lambda: print("Login")
-    bot.on_receive_message = lambda x, y: handle_msg(bot, x, y)
+    bot.on_login = lambda: print("Bot login succeeded")
+    bot.on_receive_message = lambda x, y: handle_msg(agent, bot, x, y)
     bot.connect()
 
     while True:
