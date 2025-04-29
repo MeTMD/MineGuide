@@ -9,7 +9,8 @@ license = "GPL-3.0"
 readme = "README.md"
 requires-python = ">=3.9,<4"
 dependencies = [
-    "javascript (>=1!1.2,<1!2.0)"
+    "javascript (>=1!1.2,<1!2.0)",
+    "ustb-openai (>=1.0.0,<2.0.0)"
 ]
 
 [tool.poetry]
