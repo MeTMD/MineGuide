@@ -3,6 +3,7 @@ from typing import Callable, Optional
 from javascript import On
 
 from . import JavascriptObject, mineflayer, pathfinder
+from .ClassesAPI import Vector3, Block
 from ..Data import MineGuideConfig
 
 
@@ -49,19 +50,21 @@ class BotAPI:
         self._assert_connected()
         self._bot.whisper(receiver_name, message)
 
-    def query_block_at(self, pos):
-        # TODO blockAt
-        raise NotImplementedError()
+    def do_move_to(self, pos: Vector3):
+        self._assert_connected()
+        self._bot.pathfinder.setMovements(pathfinder.Movements(self._bot))
+        self._bot.pathfinder.setGoal(pathfinder.goals.GoalNear(pos.x, pos.y, pos.z, 1))
 
-    def query_can_see_block(self, block):
-        # TODO canSeeBlock
-        raise NotImplementedError()
+    def query_block_at(self, pos: Vector3):
+        return Block(self._bot.blockAt(pos.as_raw()))
+
+    def query_can_see_block(self, block: Block):
+        return self._bot.canSeeBlock(block.as_raw()) is True
 
     def query_self_position(self):
-        # TODO entity.position
-        raise NotImplementedError()
+        return Vector3(self._bot.entity.position)
 
-    def query_player_position(self, player_name):
+    def query_player_position(self, player_name: str):
         # TODO players[ ].entity.position
         raise NotImplementedError()
 
