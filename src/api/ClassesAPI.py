@@ -46,10 +46,10 @@ class Vector3(MineflayerClassAPIBase):
         setattr(self._raw, "z", v)
 
     def __str__(self):
-        return f"({round(self.x, 3)}, {round(self.y, 3)}, {round(self.z, 3)})"
+        return f"({round(self.x, 1)}, {round(self.y, 1)}, {round(self.z, 1)})"
 
     def __repr__(self):
-        return "{" + f"x={round(self.x, 3)}, y={round(self.y, 3)}, z={round(self.y, 3)}" + "}"
+        return "{" + f"x={round(self.x, 1)}, y={round(self.y, 1)}, z={round(self.y, 1)}" + "}"
 
 
 class Entity(MineflayerClassAPIBase):

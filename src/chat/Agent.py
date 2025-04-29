@@ -43,11 +43,13 @@ class Agent:
         )
         self._memory.append({"role": "assistant", "content": predefine.choices[0].delta.content})
 
-    def chat(self, username, message):
+    def chat(self, username, user_position, self_position, message):
         self._memory.append(
             {
                 "role": "user",
-                "content": Prompts.AGENT_CHAT.format(username=username, message=message),
+                "content": Prompts.AGENT_CHAT.format(
+                    username=username, user_position=user_position, self_position=self_position, message=message
+                ),
             }
         )
         stream: Generator = self._client.chat.completions.create(
@@ -71,7 +73,7 @@ class Agent:
                     if "\n" in rst:
                         splitted = rst.split("\n")
                         while len(splitted) > 1:
-                            pop = splitted.pop(0).strip()
+                            pop = splitted.pop(0).strip().replace("</think>", "")
                             if pop:
                                 yield pop
                         rst = splitted[0]
@@ -81,7 +83,7 @@ class Agent:
             if "\n" in rst:
                 splitted = rst.split("\n")
                 while len(splitted) > 1:
-                    pop = splitted.pop(0).strip()
+                    pop = splitted.pop(0).strip().replace("</think>", "")
                     if pop:
                         yield pop
                 rst = splitted[0]

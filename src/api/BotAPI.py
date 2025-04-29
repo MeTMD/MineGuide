@@ -52,12 +52,18 @@ class BotAPI:
         self._assert_connected()
         self._bot.whisper(receiver_name, message)
 
-    def do_move_to(self, pos: Vector3):
+    def do_move_to_pos(self, pos: Vector3):
+        self._assert_connected()
+        return self.do_move_to_xyz(pos.x, pos.y, pos.z)
+
+    def do_move_to_xyz(self, x: float, y: float, z: float):
         self._assert_connected()
         if not self._mvm_set:
-            self._bot.pathfinder.setMovements(pathfinder.Movements(self._bot))
+            mvm = pathfinder.Movements(self._bot)
+            mvm.canDig = False
+            self._bot.pathfinder.setMovements(mvm)
             self._mvm_set = True
-        self._bot.pathfinder.setGoal(pathfinder.goals.GoalNear(pos.x, pos.y, pos.z, 1))
+        self._bot.pathfinder.setGoal(pathfinder.goals.GoalNear(x, y, z, 1))
 
     def query_block_at(self, pos: Vector3):
         return Block(self._bot.blockAt(pos.as_raw()))
