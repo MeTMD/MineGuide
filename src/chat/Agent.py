@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Callable, Generator, Optional
 
 from . import Prompts
 from ..Data import MineGuideConfig
@@ -23,7 +23,16 @@ class Agent:
         self._memory = [
             {
                 "role": "user",
-                "content": Prompts.AGENT_INIT.format(scene="颐和园"),
+                "content": Prompts.AGENT_INIT.format(
+                    scene=config.scene_data.name,
+                    location=config.scene_data.location,
+                    anchors=[
+                        Prompts.AGENT_INIT_ANCHOR.format(
+                            name=d.name, alias=d.alias, position=d.position, description=d.description
+                        )
+                        for d in config.scene_data.anchors
+                    ],
+                ),
             }
         ]
 

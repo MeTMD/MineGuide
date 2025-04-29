@@ -1,0 +1,33 @@
+{
+    "meta": {
+        "name": "示例景点名称",
+        "location": "中国北京"
+    },
+    "anchors": [
+        {
+            "name": "正门",
+            "alias": [ "东门", "主门" ],
+            "position": [ 30, 60, 20 ],
+            "description": "正门始建于 1900 年，是……"
+        },
+        {
+            "name": "主楼",
+            "alias": [],
+            "position": [ 80, 70, 50 ],
+            "description": "主楼的主要功能是……"
+        },
+        {
+            "name": "中心广场",
+            "alias": [ "大广场" ],
+            "position": [ -20, 60, 90 ],
+            "description": "中心广场是从正门前往主楼的必经之路……"
+        }
+    ],
+    "routes": [
+        {
+            "start": "正门",
+            "end": "主楼",
+            "pathways": [ "中心广场" ]
+        }
+    ]
+}
