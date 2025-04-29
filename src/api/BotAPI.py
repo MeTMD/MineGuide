@@ -20,8 +20,10 @@ class BotAPI:
     def __init__(self, config: MineGuideConfig):
         self._config: MineGuideConfig = config
         self._connected: bool = False
+        self._mvm_set: bool = False
 
         self.on_login: Optional[Callable[[], None]] = None
+        self.on_quit: Optional[Callable[[str], None]] = None
         self.on_spawn: Optional[Callable[[], None]] = None
         self.on_death: Optional[Callable[[], None]] = None
         self.on_receive_message: Optional[Callable[[str, str], None]] = None
@@ -52,7 +54,9 @@ class BotAPI:
 
     def do_move_to(self, pos: Vector3):
         self._assert_connected()
-        self._bot.pathfinder.setMovements(pathfinder.Movements(self._bot))
+        if not self._mvm_set:
+            self._bot.pathfinder.setMovements(pathfinder.Movements(self._bot))
+            self._mvm_set = True
         self._bot.pathfinder.setGoal(pathfinder.goals.GoalNear(pos.x, pos.y, pos.z, 1))
 
     def query_block_at(self, pos: Vector3):
@@ -65,13 +69,12 @@ class BotAPI:
         return Vector3(self._bot.entity.position)
 
     def query_player_position(self, player_name: str):
-        # TODO players[ ].entity.position
-        raise NotImplementedError()
+        return Vector3(self._bot.players[player_name].entity.position)
 
 
 def _register_listeners(api: BotAPI, bot: JavascriptObject):
     @On(bot, "chat")
-    def handle(this, sender_name: str, message: str, *args):
+    def chat(this, sender_name: str, message: str, *args):
         if api.on_receive_message and sender_name != bot.username:
             api.on_receive_message(sender_name, message)
 
@@ -82,8 +85,15 @@ def _register_listeners(api: BotAPI, bot: JavascriptObject):
 
     @On(bot, "login")
     def login(this):
+        api._connected = True
         if api.on_login:
             api.on_login()
+
+    @On(bot, "end")
+    def end(this, reason: str):
+        api._connected = False
+        if api.on_quit:
+            api.on_quit(reason)
 
     @On(bot, "spawn")
     def spawn(this):
