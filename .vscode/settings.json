@@ -1,0 +1,12 @@
+{
+    "black-formatter.args": ["-l 120"],
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnType": true,
+    "python.analysis.typeCheckingMode": "standard",
+    "cSpell.words": [
+        "Mineflayer"
+    ],
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    }
+}
