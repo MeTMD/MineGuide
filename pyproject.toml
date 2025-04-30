@@ -7,7 +7,7 @@ authors = [
 ]
 license = "GPL-3.0"
 readme = "README.md"
-requires-python = ">=3.9,<4"
+requires-python = ">=3.9,<3.14"
 dependencies = [
     "javascript (>=1!1.2,<1!2.0)",
     "ustb-openai (>=1.0.0,<2.0.0)"
@@ -15,6 +15,10 @@ dependencies = [
 
 [tool.poetry]
 package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+toml = "0.10.2"
+pyinstaller = "6.12.0"
 
 [build-system]
 requires = ["poetry-core>=2.0"]
