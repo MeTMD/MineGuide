@@ -7,6 +7,6 @@ logger.addHandler(console_handler)
 logger.setLevel(logging.DEBUG)
 logger.propagate = False
 
-from src import HelloWorld
+from src import Core
 
-HelloWorld.main()
+Core.main()
