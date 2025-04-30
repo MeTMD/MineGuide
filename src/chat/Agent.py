@@ -3,6 +3,7 @@ from typing import Generator
 import logging
 
 from . import Prompts
+from ..api.ClassesAPI import Vector3
 from ..Data import MineGuideConfig
 
 logger = logging.getLogger("mine_guide")
@@ -47,7 +48,10 @@ class Agent:
         )
         self._memory.append({"role": "assistant", "content": predefine.choices[0].delta.content})
 
-    def chat(self, username, user_position, self_position, message):
+    def chat(self, username: str, user_position: Vector3, self_position: Vector3, message: str):
+        def purify(text: str):
+            return text.strip().replace("<think>", "").replace("</think>", "")
+
         self._memory.append(
             {
                 "role": "user",
@@ -66,6 +70,7 @@ class Agent:
         full = ""
         thinking = False
         try:
+            logger.debug("Fetching LLM response")
             for chunk in stream:
                 delta: str = chunk.choices[0].delta.content
                 # print(delta or "", end="")
@@ -77,8 +82,7 @@ class Agent:
                     if "\n" in rst:
                         splitted = rst.split("\n")
                         while len(splitted) > 1:
-                            pop = splitted.pop(0).strip().replace("</think>", "")
-                            if pop:
+                            if pop := purify(splitted.pop(0)):
                                 yield pop
                         rst = splitted[0]
                 if "</think>" in delta:
@@ -87,11 +91,11 @@ class Agent:
             if "\n" in rst:
                 splitted = rst.split("\n")
                 while len(splitted) > 1:
-                    pop = splitted.pop(0).strip().replace("</think>", "")
-                    if pop:
+                    if pop := purify(splitted.pop(0)):
                         yield pop
                 rst = splitted[0]
-            yield rst.strip()
-            self._memory.append({"role": "assistant", "content": full.strip()})
+            yield purify(rst)
         except Exception as arg:
             logger.error(f"LLM API Error {arg}")
+        finally:
+            self._memory.append({"role": "assistant", "content": full.strip()})
