@@ -27,6 +27,8 @@ class BotAPI:
         self.on_spawn: Optional[Callable[[], None]] = None
         self.on_death: Optional[Callable[[], None]] = None
         self.on_receive_message: Optional[Callable[[str, str], None]] = None
+        self.on_player_joined: Optional[Callable[[str], None]] = None
+        self.on_player_left: Optional[Callable[[str], None]] = None
 
     def _assert_connected(self):
         if not self._connected:
@@ -60,7 +62,7 @@ class BotAPI:
         self._assert_connected()
         if not self._mvm_set:
             mvm = pathfinder.Movements(self._bot)
-            mvm.canDig = False
+            setattr(mvm, "canDig", False)
             self._bot.pathfinder.setMovements(mvm)
             self._mvm_set = True
         self._bot.pathfinder.setGoal(pathfinder.goals.GoalNear(x, y, z, 1))
@@ -111,6 +113,12 @@ def _register_listeners(api: BotAPI, bot: JavascriptObject):
         if api.on_death:
             api.on_death()
 
-    # TODO @On(bot, "playerJoined")
+    @On(bot, "playerJoined")
+    def playerJoined(this, player: JavascriptObject):
+        if api.on_player_joined and player.username != bot.username:
+            api.on_player_joined(str(player.username))
 
-    # TODO @On(bot, "playerLeft")
+    @On(bot, "playerLeft")
+    def playerLeft(this, player: JavascriptObject):
+        if api.on_player_left and player.username != bot.username:
+            api.on_player_left(str(player.username))
