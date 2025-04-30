@@ -23,8 +23,6 @@ poetry env use python
 poetry install
 ```
 
-您可能需要额外安装 openai 库或者 ustb_openai 库来调用 LLM 相关的 API。
-
 依赖安装完毕后，如果您使用的 IDE 是 VS Code，请选择 Python 解释器为 `3.x.x ('mine-guide-xxx': Poetry)`。
 
 ### 数据配置
@@ -32,6 +30,10 @@ poetry install
 在运行程序前，请先阅读[配置指南](#配置指南)章节，并正确配置程序运行时的环境变量和其他必须的数据。
 
 数据配置完成后，运行 Main.py，智能体将尝试连接并加入到 Minecraft 中。初次运行需要少许时间下载额外的 JS 依赖库。
+
+### 构建分发
+
+运行 Build.py 以构建可执行文件。
 
 ## 配置指南
 
