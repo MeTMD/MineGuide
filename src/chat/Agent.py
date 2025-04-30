@@ -1,7 +1,11 @@
-from typing import Callable, Generator, Optional
+from typing import Generator
+
+import logging
 
 from . import Prompts
 from ..Data import MineGuideConfig
+
+logger = logging.getLogger("mine_guide")
 
 
 def import_openai_class(config: MineGuideConfig):
@@ -90,4 +94,4 @@ class Agent:
             yield rst.strip()
             self._memory.append({"role": "assistant", "content": full.strip()})
         except Exception as arg:
-            print("LLM API Error", arg)
+            logger.error(f"LLM API Error {arg}")
