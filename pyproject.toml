@@ -21,6 +21,13 @@ package-mode = false
 toml = "0.10.2"
 pyinstaller = "6.12.0"
 
+[tool.build]
+build-dir = "$project$\\build"
+entry = "$project$\\Main.py"
+add-data = "$project$\\data:data|$venv$\\Lib\\site-packages\\javascript\\js:javascript\\js"
+hidden-import = "openai|ustb_openai"
+log-level = "WARN"
+
 [build-system]
 requires = ["poetry-core>=2.0"]
 build-backend = "poetry.core.masonry.api"
