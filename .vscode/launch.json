@@ -2,11 +2,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Main",
-            "type": "debugpy",
+            "name": "Node: main.ts",
+            "type": "node",
             "request": "launch",
-            "program": "Main.py",
-            "console": "integratedTerminal"
+            "runtimeArgs": ["--import", "tsx"],
+            "program": "${workspaceFolder}/main.ts",
+            "console": "integratedTerminal",
+            "skipFiles": ["<node_internals>/**"]
         }
     ]
 }

@@ -1,0 +1,36 @@
+{
+  "name": "mine-guide",
+  "version": "2.0.0",
+  "private": true,
+  "description": "An agent guide in Minecraft.",
+  "author": "MeTMD",
+  "license": "GPL-3.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "tsx main.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build": "tsup",
+    "build:sea": "pnpm build && node scripts/build-sea.mjs"
+  },
+  "dependencies": {
+    "ini": "7.0.0",
+    "mineflayer": "4.39.0",
+    "mineflayer-pathfinder": "2.4.5",
+    "openai": "7.18.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/ini": "4.1.1",
+    "@types/node": "24.13.5",
+    "esbuild": "0.27.7",
+    "postject": "1.0.0-alpha.6",
+    "tsup": "8.5.1",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2",
+    "vitest": "5.0.1"
+  }
+}
