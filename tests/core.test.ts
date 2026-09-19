@@ -15,6 +15,7 @@ function createAgent(sentences: string[]): ChatAgent {
         yield sentence;
       }
     },
+    async *announce() {},
   };
 }
 
@@ -54,49 +55,6 @@ describe('handleMsg', () => {
 
     expect(bot.doChat).toHaveBeenNthCalledWith(1, '你好');
     expect(bot.doChat).toHaveBeenNthCalledWith(2, '世界');
-  });
-
-  it('executes MoveTo function calls', async () => {
-    const bot = createBot();
-
-    await handleMsg(createAgent(['FCFC::MoveTo::1::2::3::CFCF']), bot, 'Alice', 'go');
-
-    expect(bot.doMoveToXyz).toHaveBeenCalledWith(1, 2, 3);
-    expect(bot.doChat).not.toHaveBeenCalled();
-  });
-
-  it('silences the whole message after a Silence call', async () => {
-    const bot = createBot();
-
-    await handleMsg(createAgent(['FCFC::Silence::CFCF', '不该发送']), bot, 'Alice', 'chat');
-
-    expect(bot.doChat).not.toHaveBeenCalled();
-  });
-
-  it('ignores unknown function calls', async () => {
-    const bot = createBot();
-
-    await handleMsg(createAgent(['FCFC::Dance::CFCF']), bot, 'Alice', 'x');
-
-    expect(bot.doChat).not.toHaveBeenCalled();
-    expect(bot.doMoveToXyz).not.toHaveBeenCalled();
-  });
-
-  it('requires function calls to start the sentence', async () => {
-    const bot = createBot();
-
-    await handleMsg(createAgent(['前缀 FCFC::Silence::CFCF']), bot, 'Alice', 'x');
-
-    expect(bot.doChat).toHaveBeenCalledWith('前缀 FCFC::Silence::CFCF');
-  });
-
-  it('logs invalid MoveTo parameters without moving', async () => {
-    const bot = createBot();
-
-    await handleMsg(createAgent(['FCFC::MoveTo::a::b::c::CFCF']), bot, 'Alice', 'go');
-
-    expect(bot.doMoveToXyz).not.toHaveBeenCalled();
-    expect(bot.doChat).not.toHaveBeenCalled();
   });
 
   it('replies to the where debug hook with the block below', async () => {

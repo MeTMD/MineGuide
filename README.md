@@ -49,15 +49,15 @@ pnpm dev
 
 ```
 main.ts                程序入口
-src/core.ts            主流程、消息分发、FCFC 函数调用解析、串行队列
+src/core.ts            主流程、消息分发、导航事件播报、串行队列
 src/data.ts            INI 配置解析与校验、景点数据 Zod 校验、路径基准
 src/logger.ts          日志输出（[L] Module - message）
 src/queue.ts           有界串行队列
 src/vector.ts          坐标格式化
-src/api/bot.ts         mineflayer 封装（连接、聊天、寻路、事件回调）
-src/chat/agent.ts      OpenAI 客户端、流式输出、记忆窗口
+src/api/bot.ts         mineflayer 封装（连接、聊天、寻路、导航事件回调）
+src/chat/agent.ts      OpenAI 客户端、工具调用循环、流式输出、记忆
 src/chat/prompts.ts    导游人设与提示词
-src/chat/think.ts      <think> 跨 chunk 剥离状态机
+src/chat/tools.ts      工具定义（Zod schema 与 JSON Schema）
 scripts/build-sea.mjs  SEA 构建脚本
 tests/                 vitest 单元测试
 data/                  景点数据
@@ -97,8 +97,10 @@ $env:MC_VERSIONS = "1.20.4"; pnpm build:sea
 
 - `[Connection]`：Minecraft 服务器地址、端口与机器人用户名。
 - `[Scene]`：载入的景点数据文件（位于 `data/` 目录下）。
-- `[LLM]`：`model_name` 指定模型名称；可选 `history_rounds` 控制发送给 LLM 的最近对话轮数（user + assistant 记 1 轮），默认 20，填 0 表示不截断。
+- `[LLM]`：`model_name` 指定模型名称；`max_tool_subturns` 控制单条用户消息内最多的 LLM 生成次数（工具调用循环上限）；`thinking` 为 `enabled` 或 `disabled`；`reasoning_effort` 为 `low`、`high` 或 `max`。出现未知键会在启动时报错。
 - `[LLMClient]`：OpenAI 兼容客户端参数，支持 `baseURL`、`apiKey`（必填）、`timeout`（单位：秒）、`maxRetries`、`defaultHeaders`（JSON 对象）。出现未知键会在启动时报错。
+
+> 对话记忆完整保留、不做截断，以维持前缀缓存命中；工具调用会产生 `reasoning_content` 与工具消息，均按原样回传给模型。
 
 > 本项目仅支持标准 OpenAI 兼容接口，不再支持 USTB 专用客户端（原 `ustb_openai`）。
 

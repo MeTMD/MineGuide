@@ -55,12 +55,28 @@ describe('parseIni', () => {
     expect(parsed.client.baseURL).toBe('https://api.openai.com/v1');
   });
 
-  it('defaults history_rounds to 20', () => {
-    expect(parseIni(buildIni()).historyRounds).toBe(20);
+  it('defaults [LLM] options', () => {
+    const parsed = parseIni(buildIni());
+    expect(parsed.maxToolSubturns).toBe(4);
+    expect(parsed.thinking).toBe('enabled');
+    expect(parsed.reasoningEffort).toBe('high');
   });
 
-  it('accepts history_rounds = 0', () => {
-    expect(parseIni(buildIni({ llm: ['model_name = gpt-4o', 'history_rounds = 0'] })).historyRounds).toBe(0);
+  it('parses [LLM] options', () => {
+    const parsed = parseIni(
+      buildIni({
+        llm: ['model_name = gpt-4o', 'max_tool_subturns = 2', 'thinking = disabled', 'reasoning_effort = low'],
+      }),
+    );
+    expect(parsed.maxToolSubturns).toBe(2);
+    expect(parsed.thinking).toBe('disabled');
+    expect(parsed.reasoningEffort).toBe('low');
+  });
+
+  it('rejects unknown [LLM] keys', () => {
+    expect(() => parseIni(buildIni({ llm: ['model_name = gpt-4o', 'history_rounds = 20'] }))).toThrow(
+      ConfigValueError,
+    );
   });
 
   it('converts timeout from seconds to milliseconds', () => {
@@ -107,7 +123,11 @@ describe('parseIni', () => {
     expect(() => parseIni(buildIni({ connection: ['host = h', 'port = 99999', 'username = u'] }))).toThrow(
       ConfigValueError,
     );
-    expect(() => parseIni(buildIni({ llm: ['model_name = m', 'history_rounds = -1'] }))).toThrow(
+    expect(() => parseIni(buildIni({ llm: ['model_name = m', 'max_tool_subturns = 0'] }))).toThrow(
+      ConfigValueError,
+    );
+    expect(() => parseIni(buildIni({ llm: ['model_name = m', 'thinking = off'] }))).toThrow(ConfigValueError);
+    expect(() => parseIni(buildIni({ llm: ['model_name = m', 'reasoning_effort = ultra'] }))).toThrow(
       ConfigValueError,
     );
     expect(() => parseIni(buildIni({ client: ['apiKey = k', 'timeout = 0'] }))).toThrow(ConfigValueError);

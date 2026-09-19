@@ -56,12 +56,17 @@ export interface LlmClientOptions {
   defaultHeaders?: Record<string, string>;
 }
 
+export type LlmThinking = 'enabled' | 'disabled';
+export type LlmReasoningEffort = 'low' | 'high' | 'max';
+
 export interface MineGuideConfig {
   host: string;
   port: number;
   username: string;
   llmModelName: string;
-  llmHistoryRounds: number;
+  llmMaxToolSubturns: number;
+  llmThinking: LlmThinking;
+  llmReasoningEffort: LlmReasoningEffort;
   llmClient: LlmClientOptions;
   scene: SceneConfig;
 }
@@ -71,15 +76,20 @@ interface ParsedIni {
   port: number;
   username: string;
   modelName: string;
-  historyRounds: number;
+  maxToolSubturns: number;
+  thinking: LlmThinking;
+  reasoningEffort: LlmReasoningEffort;
   client: LlmClientOptions;
   dataFile: string;
 }
 
 type IniSection = Record<string, string>;
 
+const LLM_KEYS: readonly string[] = ['model_name', 'max_tool_subturns', 'thinking', 'reasoning_effort'];
 const CLIENT_KEYS: readonly string[] = ['baseURL', 'apiKey', 'timeout', 'maxRetries', 'defaultHeaders'];
-const DEFAULT_HISTORY_ROUNDS = 20;
+const DEFAULT_MAX_TOOL_SUBTURNS = 4;
+const DEFAULT_THINKING: LlmThinking = 'enabled';
+const DEFAULT_REASONING_EFFORT: LlmReasoningEffort = 'high';
 
 export function getBaseDir(): string {
   return isSeaRun() ? dirname(process.execPath) : process.cwd();
@@ -97,7 +107,9 @@ export function parseConfig(configText: string, sceneText: string): MineGuideCon
     port: parsed.port,
     username: parsed.username,
     llmModelName: parsed.modelName,
-    llmHistoryRounds: parsed.historyRounds,
+    llmMaxToolSubturns: parsed.maxToolSubturns,
+    llmThinking: parsed.thinking,
+    llmReasoningEffort: parsed.reasoningEffort,
     llmClient: parsed.client,
     scene: parseScene(sceneText),
   };
@@ -110,12 +122,20 @@ export function parseIni(configText: string): ParsedIni {
   const llmClient = requireSection(contents, 'LLMClient');
   const scene = requireSection(contents, 'Scene');
 
+  for (const key of Object.keys(llm)) {
+    if (!LLM_KEYS.includes(key)) {
+      throw new ConfigValueError(`Unknown key "${key}" in section [LLM]`);
+    }
+  }
+
   return {
     host: requireKey(connection, 'host'),
     port: parsePort(requireKey(connection, 'port')),
     username: requireKey(connection, 'username'),
     modelName: requireKey(llm, 'model_name'),
-    historyRounds: parseHistoryRounds(llm['history_rounds']),
+    maxToolSubturns: parseMaxToolSubturns(llm['max_tool_subturns']),
+    thinking: parseThinking(llm['thinking']),
+    reasoningEffort: parseReasoningEffort(llm['reasoning_effort']),
     client: parseClientOptions(llmClient),
     dataFile: requireKey(scene, 'data_file'),
   };
@@ -149,7 +169,9 @@ export function loadConfig(configPath: string, dataDir: string): MineGuideConfig
     port: parsed.port,
     username: parsed.username,
     llmModelName: parsed.modelName,
-    llmHistoryRounds: parsed.historyRounds,
+    llmMaxToolSubturns: parsed.maxToolSubturns,
+    llmThinking: parsed.thinking,
+    llmReasoningEffort: parsed.reasoningEffort,
     llmClient: parsed.client,
     scene: parseScene(sceneText),
   };
@@ -190,15 +212,35 @@ function parsePort(raw: string): number {
   return port;
 }
 
-function parseHistoryRounds(raw: string | undefined): number {
+function parseMaxToolSubturns(raw: string | undefined): number {
   if (raw === undefined) {
-    return DEFAULT_HISTORY_ROUNDS;
+    return DEFAULT_MAX_TOOL_SUBTURNS;
   }
-  const rounds = Number.parseInt(raw, 10);
-  if (!Number.isInteger(rounds) || rounds < 0) {
-    throw new ConfigValueError(`Invalid history_rounds value "${raw}"`);
+  const subturns = Number.parseInt(raw, 10);
+  if (!Number.isInteger(subturns) || subturns < 1) {
+    throw new ConfigValueError(`Invalid max_tool_subturns value "${raw}"`);
   }
-  return rounds;
+  return subturns;
+}
+
+function parseThinking(raw: string | undefined): LlmThinking {
+  if (raw === undefined) {
+    return DEFAULT_THINKING;
+  }
+  if (raw !== 'enabled' && raw !== 'disabled') {
+    throw new ConfigValueError(`Invalid thinking value "${raw}", expected "enabled" or "disabled"`);
+  }
+  return raw;
+}
+
+function parseReasoningEffort(raw: string | undefined): LlmReasoningEffort {
+  if (raw === undefined) {
+    return DEFAULT_REASONING_EFFORT;
+  }
+  if (raw !== 'low' && raw !== 'high' && raw !== 'max') {
+    throw new ConfigValueError(`Invalid reasoning_effort value "${raw}", expected "low", "high" or "max"`);
+  }
+  return raw;
 }
 
 function parseClientOptions(section: IniSection): LlmClientOptions {

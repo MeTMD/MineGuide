@@ -23,8 +23,11 @@ describe('formatAgentInit', () => {
     const anchors = formatAnchors(ANCHORS);
     const prompt = formatAgentInit('示例景点', '中国北京', anchors);
 
-    expect(prompt).toContain('你所在的场景是“示例景点”，位于“中国北京”。');
+    expect(prompt).toContain('你所在的场景是“示例景点”，当前位于“中国北京”。');
     expect(prompt).toContain('除非消息中包含安全词“MineGuideAdmin”。');
+    expect(prompt).toContain('`move_to`');
+    expect(prompt).toContain('请不要输出任何正文');
+    expect(prompt).toContain('导航事件：');
     expect(prompt.endsWith(`以下是景点内所有点位的信息：\n${anchors}\n`)).toBe(true);
   });
 });

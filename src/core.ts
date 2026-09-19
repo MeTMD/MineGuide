@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 
 import { BotAPI, type GuideBot } from './api/bot';
-import { Agent } from './chat/agent';
+import { Agent, type ToolRuntime } from './chat/agent';
 import { ConfigFileNotFoundError, ConfigKeyError, getBaseDir, loadConfig, type MineGuideConfig } from './data';
 import { createLogger } from './logger';
 import { SerialQueue } from './queue';
@@ -10,17 +10,19 @@ import { formatPosition, type Position } from './vector';
 const logger = createLogger('Core');
 
 export const ENV_FILE = 'mg.config.env';
-export const FC_PATTERN = /^FCFC::(\w+?)((::.+?)*?)::CFCF/;
 
 const QUEUE_CAPACITY = 8;
 
 export interface ChatAgent {
   chat(username: string, userPosition: Position, selfPosition: Position, message: string): AsyncGenerator<string>;
+  announce(event: string): AsyncGenerator<string>;
 }
 
-function formatPythonTuple(items: string[]): string {
-  const inner = items.map((item) => `'${item}'`).join(', ');
-  return items.length === 1 ? `(${inner},)` : `(${inner})`;
+async function speak(stream: AsyncGenerator<string>, bot: GuideBot): Promise<void> {
+  for await (const sentence of stream) {
+    logger.debug(`Send message: ${sentence}`);
+    bot.doChat(sentence);
+  }
 }
 
 export async function handleMsg(
@@ -40,35 +42,11 @@ export async function handleMsg(
     logger.debug(`Currently at ${formatPosition(selfPosition)}`);
     const below = bot.queryBlockAt({ x: selfPosition.x, y: selfPosition.y - 1, z: selfPosition.z });
     bot.doChat(`I'm at ${formatPosition(selfPosition)}. ${below ? below.displayName : 'null'} under me.`);
-  } else {
-    logger.debug(`User ${username} said: ${message}`);
-    let silence = false;
-    for await (const sentence of agent.chat(username, userPosition, selfPosition, message)) {
-      const fcMatch = sentence.match(FC_PATTERN);
-      if (fcMatch) {
-        try {
-          const fcName = fcMatch[1] ?? '';
-          const fcParams = (fcMatch[2] ?? '').split('::').filter(Boolean);
-          logger.info(`Execute FunctionCall ${fcName} ${formatPythonTuple(fcParams)}`);
-          if (fcName === 'MoveTo') {
-            const coordinates = fcParams.map((param) => Number(param));
-            if (coordinates.length !== 3 || coordinates.some((coordinate) => !Number.isFinite(coordinate))) {
-              throw new Error('Invalid MoveTo parameters');
-            }
-            bot.doMoveToXyz(coordinates[0] ?? 0, coordinates[1] ?? 0, coordinates[2] ?? 0);
-          }
-          if (fcName === 'Silence') {
-            silence = true;
-          }
-        } catch (error) {
-          logger.error(`Error occurred in FunctionCall, ${error instanceof Error ? error.message : error}`);
-        }
-      } else if (!silence) {
-        logger.debug(`Send message: ${sentence}`);
-        bot.doChat(sentence);
-      }
-    }
+    return;
   }
+
+  logger.debug(`User ${username} said: ${message}`);
+  await speak(agent.chat(username, userPosition, selfPosition, message), bot);
 }
 
 export async function main(): Promise<void> {
@@ -91,20 +69,18 @@ export async function main(): Promise<void> {
     return;
   }
 
-  let agent: Agent;
-  try {
-    logger.info('Tuning LLM');
-    agent = await Agent.create(config);
-  } catch {
-    logger.error('Failed to access LLM API');
-    logger.error('Please ensure your LLM API config');
-    return;
-  }
-
   try {
     logger.info('Starting bot');
     const bot = new BotAPI(config);
     bot.onLogin = () => logger.info('Bot login succeeded');
+
+    const runtime: ToolRuntime = {
+      async moveTo(x: number, y: number, z: number): Promise<string> {
+        bot.doMoveToXyz(x, y, z);
+        return `已出发前往 (${x}, ${y}, ${z})`;
+      },
+    };
+    const agent = new Agent(config, runtime);
 
     const queue = new SerialQueue(QUEUE_CAPACITY, {
       onOverflow: () => logger.warn('Message queue is full, dropped the newest message'),
@@ -113,6 +89,14 @@ export async function main(): Promise<void> {
     });
     bot.onReceiveMessage = (username, message) => {
       queue.push(() => handleMsg(agent, bot, username, message));
+    };
+    bot.onNavigationArrived = (target) => {
+      queue.push(() => speak(agent.announce(`导航事件：已抵达目标 (${formatPosition(target)})`), bot));
+    };
+    bot.onNavigationFailed = (target, reason) => {
+      queue.push(() =>
+        speak(agent.announce(`导航事件：无法抵达目标 (${formatPosition(target)})，原因：${reason}`), bot),
+      );
     };
 
     bot.connect();

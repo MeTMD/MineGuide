@@ -35,11 +35,15 @@ export class BotAPI implements GuideBot {
   onReceiveMessage?: (username: string, message: string) => void;
   onPlayerJoined?: (username: string) => void;
   onPlayerLeft?: (username: string) => void;
+  onNavigationArrived?: (target: Position) => void;
+  onNavigationFailed?: (target: Position, reason: string) => void;
 
   private readonly config: MineGuideConfig;
   private bot?: Bot;
   private connected = false;
   private movementsSet = false;
+  private navigationActive = false;
+  private navigationTarget: Position | null = null;
 
   constructor(config: MineGuideConfig) {
     this.config = config;
@@ -79,6 +83,8 @@ export class BotAPI implements GuideBot {
       bot.pathfinder.setMovements(movements);
       this.movementsSet = true;
     }
+    this.navigationActive = true;
+    this.navigationTarget = { x, y, z };
     bot.pathfinder.setGoal(new goals.GoalNear(x, y, z, 1));
   }
 
@@ -116,6 +122,23 @@ export class BotAPI implements GuideBot {
     }
   }
 
+  private finishNavigation(reason?: string): void {
+    if (!this.navigationActive) {
+      return;
+    }
+    const target = this.navigationTarget;
+    this.navigationActive = false;
+    this.navigationTarget = null;
+    if (target === null) {
+      return;
+    }
+    if (reason === undefined) {
+      this.onNavigationArrived?.(target);
+    } else {
+      this.onNavigationFailed?.(target, reason);
+    }
+  }
+
   private registerListeners(bot: Bot): void {
     bot.on('chat', (username, message) => {
       if (this.onReceiveMessage && username !== bot.username) {
@@ -133,7 +156,17 @@ export class BotAPI implements GuideBot {
     });
     bot.on('end', (reason) => {
       this.connected = false;
+      this.navigationActive = false;
+      this.navigationTarget = null;
       this.onQuit?.(reason);
+    });
+    bot.on('goal_reached', () => {
+      this.finishNavigation();
+    });
+    bot.on('path_update', (results) => {
+      if (results.status === 'noPath' || results.status === 'timeout') {
+        this.finishNavigation(results.status);
+      }
     });
     bot.on('spawn', () => {
       this.onSpawn?.();

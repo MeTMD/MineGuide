@@ -1,7 +1,7 @@
 import type OpenAI from 'openai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Agent } from '../src/chat/agent';
+import { Agent, type ToolRuntime } from '../src/chat/agent';
 import { parseConfig, type MineGuideConfig } from '../src/data';
 
 const SCENE_JSON = JSON.stringify({
@@ -9,7 +9,7 @@ const SCENE_JSON = JSON.stringify({
   anchors: [{ name: '正门', alias: ['东门'], position: [1, 2, 3], description: '描述' }],
 });
 
-function makeConfig(historyRounds = 20): MineGuideConfig {
+function makeConfig(llm: string[] = []): MineGuideConfig {
   const ini = [
     '[Connection]',
     'host = 127.0.0.1',
@@ -19,26 +19,31 @@ function makeConfig(historyRounds = 20): MineGuideConfig {
     'data_file = scene.json',
     '[LLM]',
     'model_name = test-model',
-    `history_rounds = ${historyRounds}`,
+    ...llm,
     '[LLMClient]',
     'apiKey = test-key',
   ].join('\n');
   return parseConfig(ini, SCENE_JSON);
 }
 
-interface ChatMessage {
+interface MemoryLike {
   role: string;
-  content: string;
+  content?: unknown;
+  reasoning_content?: unknown;
+  tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+  tool_call_id?: string;
 }
 
-interface ChatCall {
-  stream?: boolean;
-  messages: ChatMessage[];
+interface FakeParams {
+  messages: MemoryLike[];
+  tools?: Array<{ function: { name: string } }>;
+  thinking?: { type: string };
+  reasoning_effort?: string;
 }
 
 type StreamFactory = () => AsyncGenerator<unknown>;
 
-function stringStream(chunks: string[]): StreamFactory {
+function contentStream(chunks: string[]): StreamFactory {
   return async function* generate() {
     for (const content of chunks) {
       yield { choices: [{ delta: { content } }] };
@@ -46,21 +51,36 @@ function stringStream(chunks: string[]): StreamFactory {
   };
 }
 
-function createFakeClient(factories: StreamFactory[], predefine = 'opening') {
-  const calls: ChatCall[] = [];
-  let index = 0;
-
-  const create = (params: ChatCall): unknown => {
-    calls.push(params);
-    if (params.stream === true) {
-      const factory = factories[index] ?? stringStream([]);
-      index += 1;
-      return factory();
+function toolCallStream(id: string, name: string, argumentChunks: string[]): StreamFactory {
+  return async function* generate() {
+    yield { choices: [{ delta: { tool_calls: [{ index: 0, id, function: { name, arguments: '' } }] } }] };
+    for (const chunk of argumentChunks) {
+      yield { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: chunk } }] } }] };
     }
-    return Promise.resolve({ choices: [{ message: { content: predefine } }] });
   };
+}
 
+function createFakeClient(factories: StreamFactory[]) {
+  const calls: FakeParams[] = [];
+  let index = 0;
+  const create = (params: FakeParams) => {
+    calls.push(params);
+    const factory = factories[index] ?? contentStream([]);
+    index += 1;
+    return factory();
+  };
   return { client: { chat: { completions: { create } } } as unknown as OpenAI, calls };
+}
+
+function createRuntime(result = '已出发') {
+  const calls: Array<[number, number, number]> = [];
+  const runtime: ToolRuntime = {
+    async moveTo(x, y, z) {
+      calls.push([x, y, z]);
+      return result;
+    },
+  };
+  return { runtime, calls };
 }
 
 async function collect(generator: AsyncGenerator<string>): Promise<string[]> {
@@ -83,71 +103,131 @@ describe('Agent', () => {
     vi.restoreAllMocks();
   });
 
-  it('stores the predefined reply in memory', async () => {
-    const { client, calls } = createFakeClient([stringStream(['hi\n'])]);
-    const agent = await Agent.create(makeConfig(), client);
+  it('starts the memory with a system prompt and sends tool options', async () => {
+    const { client, calls } = createFakeClient([contentStream(['你好\n'])]);
+    const { runtime } = createRuntime();
 
+    const agent = new Agent(makeConfig(), runtime, client);
     await collect(agent.chat('Alice', USER, SELF, 'hello'));
 
-    const chatCall = calls.find((call) => call.stream === true);
-    expect(chatCall?.messages[1]).toEqual({ role: 'assistant', content: 'opening' });
+    const call = calls[0];
+    expect(call?.messages[0]).toMatchObject({ role: 'system' });
+    expect(String(call?.messages[0]?.content)).toContain('智能导游');
+    expect(call?.tools?.[0]?.function.name).toBe('move_to');
+    expect(call?.thinking).toEqual({ type: 'enabled' });
+    expect(call?.reasoning_effort).toBe('high');
   });
 
   it('yields sentences split on newlines', async () => {
-    const { client } = createFakeClient([stringStream(['你好\n', '世界\n'])]);
-    const agent = await Agent.create(makeConfig(), client);
+    const { client } = createFakeClient([contentStream(['你好\n', '世界\n'])]);
+    const { runtime } = createRuntime();
 
+    const agent = new Agent(makeConfig(), runtime, client);
     expect(await collect(agent.chat('Alice', USER, SELF, 'hello'))).toEqual(['你好', '世界']);
   });
 
-  it('does not yield empty sentences', async () => {
-    const { client } = createFakeClient([stringStream(['abc\n'])]);
-    const agent = await Agent.create(makeConfig(), client);
+  it('executes tool calls and continues the loop', async () => {
+    const { client, calls } = createFakeClient([
+      toolCallStream('call_1', 'move_to', ['{"x":1,', '"y":2,"z":3}']),
+      contentStream(['好的\n']),
+    ]);
+    const { runtime, calls: moves } = createRuntime('已出发前往 (1, 2, 3)');
 
-    expect(await collect(agent.chat('Alice', USER, SELF, 'hello'))).toEqual(['abc']);
+    const agent = new Agent(makeConfig(), runtime, client);
+    expect(await collect(agent.chat('Alice', USER, SELF, 'go'))).toEqual(['好的']);
+    expect(moves).toEqual([[1, 2, 3]]);
+
+    const second = calls[1]?.messages ?? [];
+    const assistant = second.find((message) => message.role === 'assistant' && message.tool_calls);
+    expect(assistant?.tool_calls?.[0]?.function).toEqual({ name: 'move_to', arguments: '{"x":1,"y":2,"z":3}' });
+    expect(second.find((message) => message.role === 'tool')?.tool_call_id).toBe('call_1');
   });
 
-  it('stores the assistant reply without think content', async () => {
-    const { client, calls } = createFakeClient([
-      stringStream(['<thi', 'nk>隐藏</thi', 'nk>回答\n']),
-      stringStream(['ok\n']),
-    ]);
-    const agent = await Agent.create(makeConfig(), client);
+  it('stores reasoning_content for later requests', async () => {
+    const thinking: StreamFactory = async function* generate() {
+      yield { choices: [{ delta: { reasoning_content: '先想' } }] };
+      yield { choices: [{ delta: { content: '回答\n' } }] };
+    };
+    const { client, calls } = createFakeClient([thinking, contentStream(['再次\n'])]);
 
-    expect(await collect(agent.chat('Alice', USER, SELF, 'hello'))).toEqual(['回答']);
+    const agent = new Agent(makeConfig(), createRuntime().runtime, client);
+    await collect(agent.chat('Alice', USER, SELF, 'first'));
+    await collect(agent.chat('Alice', USER, SELF, 'second'));
+
+    const second = calls[1]?.messages ?? [];
+    expect(second.find((message) => message.role === 'assistant')?.reasoning_content).toBe('先想');
+  });
+
+  it('keeps an empty reasoning_content on assistant messages when thinking is enabled', async () => {
+    const { client, calls } = createFakeClient([contentStream(['回答\n']), contentStream(['再次\n'])]);
+
+    const agent = new Agent(makeConfig(), createRuntime().runtime, client);
+    await collect(agent.chat('Alice', USER, SELF, 'first'));
+    await collect(agent.chat('Alice', USER, SELF, 'second'));
+
+    const assistant = (calls[1]?.messages ?? []).find((message) => message.role === 'assistant');
+    expect(assistant?.reasoning_content).toBe('');
+  });
+
+  it('omits reasoning_content when thinking is disabled', async () => {
+    const { client, calls } = createFakeClient([contentStream(['回答\n']), contentStream(['再次\n'])]);
+
+    const agent = new Agent(makeConfig(['thinking = disabled']), createRuntime().runtime, client);
+    await collect(agent.chat('Alice', USER, SELF, 'first'));
+    await collect(agent.chat('Alice', USER, SELF, 'second'));
+
+    const assistant = (calls[1]?.messages ?? []).find((message) => message.role === 'assistant');
+    expect(assistant).not.toHaveProperty('reasoning_content');
+  });
+
+  it('keeps the whole history across turns', async () => {
+    const { client, calls } = createFakeClient([contentStream(['r1\n']), contentStream(['r2\n'])]);
+
+    const agent = new Agent(makeConfig(), createRuntime().runtime, client);
+    await collect(agent.chat('Alice', USER, SELF, 'first'));
+    await collect(agent.chat('Alice', USER, SELF, 'second'));
+
+    const second = calls[1]?.messages ?? [];
+    expect(second.map((message) => message.role)).toEqual(['system', 'user', 'assistant', 'user']);
+    expect(String(second.at(-1)?.content)).toContain('second');
+  });
+
+  it('aborts after max_tool_subturns', async () => {
+    const factories = Array.from({ length: 3 }, (_, index) =>
+      toolCallStream(`call_${index}`, 'move_to', ['{"x":1,"y":2,"z":3}']),
+    );
+    const { client } = createFakeClient(factories);
+    const { runtime, calls: moves } = createRuntime();
+
+    const agent = new Agent(makeConfig(['max_tool_subturns = 2']), runtime, client);
+    expect(await collect(agent.chat('Alice', USER, SELF, 'go'))).toEqual([]);
+    expect(moves).toHaveLength(2);
+  });
+
+  it('feeds invalid tool arguments back as errors', async () => {
+    const { client, calls } = createFakeClient([
+      toolCallStream('call_1', 'move_to', ['not-json']),
+      contentStream(['抱歉\n']),
+    ]);
+    const { runtime, calls: moves } = createRuntime();
+
+    const agent = new Agent(makeConfig(), runtime, client);
+    expect(await collect(agent.chat('Alice', USER, SELF, 'go'))).toEqual(['抱歉']);
+    expect(moves).toHaveLength(0);
+
+    const toolMessage = (calls[1]?.messages ?? []).find((message) => message.role === 'tool');
+    expect(String(toolMessage?.content)).toContain('错误');
+  });
+
+  it('stays silent when the model outputs nothing', async () => {
+    const { client, calls } = createFakeClient([contentStream([]), contentStream([])]);
+
+    const agent = new Agent(makeConfig(), createRuntime().runtime, client);
+    expect(await collect(agent.chat('Alice', USER, SELF, 'hello'))).toEqual([]);
     await collect(agent.chat('Alice', USER, SELF, 'again'));
 
-    const streamCalls = calls.filter((call) => call.stream === true);
-    const assistants = (streamCalls[1]?.messages ?? []).filter((message) => message.role === 'assistant');
-    expect(assistants.at(-1)).toEqual({ role: 'assistant', content: '回答' });
-  });
-
-  it('sends only the configured number of recent rounds', async () => {
-    const { client, calls } = createFakeClient([stringStream(['r1\n']), stringStream(['r2\n'])]);
-    const agent = await Agent.create(makeConfig(1), client);
-
-    await collect(agent.chat('Alice', USER, SELF, 'first'));
-    await collect(agent.chat('Alice', USER, SELF, 'second'));
-
-    const streamCalls = calls.filter((call) => call.stream === true);
-    const second = streamCalls[1]?.messages ?? [];
-    expect(second.map((message) => message.content)).toEqual([
-      expect.stringContaining('你是一个在 Minecraft 里的智能导游'),
-      'opening',
-      'r1',
-      expect.stringContaining('second'),
-    ]);
-  });
-
-  it('keeps the full history when history_rounds is 0', async () => {
-    const { client, calls } = createFakeClient([stringStream(['r1\n']), stringStream(['r2\n'])]);
-    const agent = await Agent.create(makeConfig(0), client);
-
-    await collect(agent.chat('Alice', USER, SELF, 'first'));
-    await collect(agent.chat('Alice', USER, SELF, 'second'));
-
-    const streamCalls = calls.filter((call) => call.stream === true);
-    expect(streamCalls[1]?.messages).toHaveLength(5);
+    const assistants = (calls[1]?.messages ?? []).filter((message) => message.role === 'assistant');
+    expect(assistants).toHaveLength(0);
   });
 
   it('logs stream errors but keeps partial memory', async () => {
@@ -155,14 +235,24 @@ describe('Agent', () => {
       yield { choices: [{ delta: { content: '部分' } }] };
       throw new Error('boom');
     };
-    const { client, calls } = createFakeClient([failing, stringStream(['ok\n'])]);
-    const agent = await Agent.create(makeConfig(), client);
+    const { client, calls } = createFakeClient([failing, contentStream(['ok\n'])]);
 
-    expect(await collect(agent.chat('Alice', USER, SELF, 'hello'))).toEqual([]);
+    const agent = new Agent(makeConfig(), createRuntime().runtime, client);
+    expect(await collect(agent.chat('Alice', USER, SELF, 'hello'))).toEqual(['部分']);
     await collect(agent.chat('Alice', USER, SELF, 'again'));
 
-    const streamCalls = calls.filter((call) => call.stream === true);
-    const assistants = (streamCalls[1]?.messages ?? []).filter((message) => message.role === 'assistant');
-    expect(assistants.at(-1)).toEqual({ role: 'assistant', content: '部分' });
+    const assistants = (calls[1]?.messages ?? []).filter((message) => message.role === 'assistant');
+    expect(assistants.at(-1)?.content).toBe('部分');
+  });
+
+  it('announces navigation events through the same loop', async () => {
+    const { client, calls } = createFakeClient([contentStream(['到了\n'])]);
+
+    const agent = new Agent(makeConfig(), createRuntime().runtime, client);
+    expect(await collect(agent.announce('导航事件：已抵达目标 (1.0, 2.0, 3.0)'))).toEqual(['到了']);
+    expect(calls[0]?.messages.at(-1)).toEqual({
+      role: 'system',
+      content: '导航事件：已抵达目标 (1.0, 2.0, 3.0)',
+    });
   });
 });
