@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Agent, type ToolRuntime } from '../src/chat/agent';
 import { parseConfig, type MineGuideConfig } from '../src/data';
+import { DebugEventHub } from '../src/debug/events';
+import { DebugTracer } from '../src/debug/tracer';
 
 const SCENE_JSON = JSON.stringify({
   meta: { name: '场景', location: '地点' },
@@ -243,6 +245,52 @@ describe('Agent', () => {
 
     const assistants = (calls[1]?.messages ?? []).filter((message) => message.role === 'assistant');
     expect(assistants.at(-1)?.content).toBe('部分');
+  });
+
+  it('records pipeline events and token usage through the tracer', async () => {
+    const finalStream: StreamFactory = async function* generate() {
+      yield { choices: [{ delta: { content: '好的\n' } }] };
+      yield {
+        choices: [{ delta: {}, finish_reason: 'stop' }],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 5,
+          total_tokens: 15,
+          prompt_cache_hit_tokens: 4,
+          completion_tokens_details: { reasoning_tokens: 2 },
+        },
+      };
+    };
+    const { client } = createFakeClient([
+      toolCallStream('call_1', 'move_to', ['{"x":1,"y":2,"z":3}']),
+      finalStream,
+    ]);
+    const hub = new DebugEventHub();
+    const agent = new Agent(makeConfig(), createRuntime().runtime, client, new DebugTracer(hub));
+
+    await collect(agent.chat('Alice', USER, SELF, 'go'));
+
+    const records = hub.pipelineRecords();
+    const turns = records.filter((record) => record.kind === 'turn_start');
+    expect(turns).toHaveLength(1);
+    expect(turns[0]?.kind === 'turn_start' ? turns[0].source : '').toBe('chat');
+    expect(records.filter((record) => record.kind === 'turn_end')).toHaveLength(1);
+    expect(records.some((record) => record.kind === 'request_first_token')).toBe(true);
+
+    const ends = records.filter((record) => record.kind === 'request_end');
+    expect(ends).toHaveLength(2);
+    const last = ends[1];
+    expect(last?.kind === 'request_end' ? last.usage : undefined).toEqual({
+      prompt: 10,
+      completion: 5,
+      reasoning: 2,
+      cached: 4,
+      cacheMiss: 6,
+      total: 15,
+    });
+
+    const toolEnd = records.find((record) => record.kind === 'tool_end');
+    expect(toolEnd?.kind === 'tool_end' ? toolEnd.status : '').toBe('completed');
   });
 
   it('announces navigation events through the same loop', async () => {

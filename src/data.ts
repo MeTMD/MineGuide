@@ -59,6 +59,11 @@ export interface LlmClientOptions {
 export type LlmThinking = 'enabled' | 'disabled';
 export type LlmReasoningEffort = 'low' | 'high' | 'max';
 
+export interface DebugOptions {
+  enabled: boolean;
+  port: number;
+}
+
 export interface MineGuideConfig {
   host: string;
   port: number;
@@ -68,6 +73,7 @@ export interface MineGuideConfig {
   llmThinking: LlmThinking;
   llmReasoningEffort: LlmReasoningEffort;
   llmClient: LlmClientOptions;
+  debug: DebugOptions;
   scene: SceneConfig;
 }
 
@@ -80,6 +86,7 @@ interface ParsedIni {
   thinking: LlmThinking;
   reasoningEffort: LlmReasoningEffort;
   client: LlmClientOptions;
+  debug: DebugOptions;
   dataFile: string;
 }
 
@@ -87,9 +94,12 @@ type IniSection = Record<string, string>;
 
 const LLM_KEYS: readonly string[] = ['model_name', 'max_tool_subturns', 'thinking', 'reasoning_effort'];
 const CLIENT_KEYS: readonly string[] = ['baseURL', 'apiKey', 'timeout', 'maxRetries', 'defaultHeaders'];
+const DEBUG_KEYS: readonly string[] = ['enabled', 'port'];
 const DEFAULT_MAX_TOOL_SUBTURNS = 4;
 const DEFAULT_THINKING: LlmThinking = 'enabled';
 const DEFAULT_REASONING_EFFORT: LlmReasoningEffort = 'high';
+const DEFAULT_DEBUG_ENABLED = true;
+const DEFAULT_DEBUG_PORT = 25564;
 
 export function getBaseDir(): string {
   return isSeaRun() ? dirname(process.execPath) : process.cwd();
@@ -111,6 +121,7 @@ export function parseConfig(configText: string, sceneText: string): MineGuideCon
     llmThinking: parsed.thinking,
     llmReasoningEffort: parsed.reasoningEffort,
     llmClient: parsed.client,
+    debug: parsed.debug,
     scene: parseScene(sceneText),
   };
 }
@@ -137,6 +148,7 @@ export function parseIni(configText: string): ParsedIni {
     thinking: parseThinking(llm['thinking']),
     reasoningEffort: parseReasoningEffort(llm['reasoning_effort']),
     client: parseClientOptions(llmClient),
+    debug: parseDebugOptions(contents['Debug']),
     dataFile: requireKey(scene, 'data_file'),
   };
 }
@@ -173,6 +185,7 @@ export function loadConfig(configPath: string, dataDir: string): MineGuideConfig
     llmThinking: parsed.thinking,
     llmReasoningEffort: parsed.reasoningEffort,
     llmClient: parsed.client,
+    debug: parsed.debug,
     scene: parseScene(sceneText),
   };
 }
@@ -241,6 +254,38 @@ function parseReasoningEffort(raw: string | undefined): LlmReasoningEffort {
     throw new ConfigValueError(`Invalid reasoning_effort value "${raw}", expected "low", "high" or "max"`);
   }
   return raw;
+}
+
+function parseDebugOptions(section: unknown): DebugOptions {
+  if (section === undefined) {
+    return { enabled: DEFAULT_DEBUG_ENABLED, port: DEFAULT_DEBUG_PORT };
+  }
+  if (typeof section !== 'object' || section === null) {
+    throw new ConfigKeyError('Debug');
+  }
+  const ini = section as IniSection;
+  for (const key of Object.keys(ini)) {
+    if (!DEBUG_KEYS.includes(key)) {
+      throw new ConfigValueError(`Unknown key "${key}" in section [Debug]`);
+    }
+  }
+  return {
+    enabled: parseDebugEnabled(ini['enabled']),
+    port: ini['port'] === undefined ? DEFAULT_DEBUG_PORT : parsePort(ini['port']),
+  };
+}
+
+function parseDebugEnabled(raw: unknown): boolean {
+  if (raw === undefined) {
+    return DEFAULT_DEBUG_ENABLED;
+  }
+  if (raw === true || raw === 'true') {
+    return true;
+  }
+  if (raw === false || raw === 'false') {
+    return false;
+  }
+  throw new ConfigValueError(`Invalid enabled value "${String(raw)}", expected "true" or "false"`);
 }
 
 function parseClientOptions(section: IniSection): LlmClientOptions {

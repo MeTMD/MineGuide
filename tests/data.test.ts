@@ -27,6 +27,7 @@ interface IniOptions {
   scene?: string[];
   llm?: string[];
   client?: string[];
+  debug?: string[];
 }
 
 function buildIni(options: IniOptions = {}): string {
@@ -39,6 +40,7 @@ function buildIni(options: IniOptions = {}): string {
     ...(options.llm ?? ['model_name = gpt-4o']),
     '[LLMClient]',
     ...(options.client ?? ['baseURL = https://api.openai.com/v1', 'apiKey = test-key']),
+    ...(options.debug !== undefined ? ['[Debug]', ...options.debug] : []),
   ].join('\n');
 }
 
@@ -114,6 +116,26 @@ describe('parseIni', () => {
 
   it('requires apiKey', () => {
     expect(() => parseIni(buildIni({ client: ['baseURL = http://x'] }))).toThrow(ConfigKeyError);
+  });
+
+  it('defaults [Debug] options', () => {
+    expect(parseIni(buildIni()).debug).toEqual({ enabled: true, port: 25564 });
+  });
+
+  it('parses [Debug] options', () => {
+    expect(parseIni(buildIni({ debug: ['enabled = false', 'port = 9000'] })).debug).toEqual({
+      enabled: false,
+      port: 9000,
+    });
+  });
+
+  it('rejects unknown [Debug] keys', () => {
+    expect(() => parseIni(buildIni({ debug: ['foo = bar'] }))).toThrow(ConfigValueError);
+  });
+
+  it('rejects invalid [Debug] values', () => {
+    expect(() => parseIni(buildIni({ debug: ['enabled = yes'] }))).toThrow(ConfigValueError);
+    expect(() => parseIni(buildIni({ debug: ['port = 0'] }))).toThrow(ConfigValueError);
   });
 
   it('rejects invalid numeric values', () => {
