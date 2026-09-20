@@ -1,5 +1,13 @@
+# Build
 build/
 dist/
-node_modules/
-*.env
 *.exe
+
+# Backup
+*.bak.json
+
+# Node
+node_modules/
+
+# Environment
+*.env
