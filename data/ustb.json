@@ -1,0 +1,548 @@
+{
+    "meta": {
+        "name": "北京科技大学",
+        "location": "北京市海淀区学院路30号"
+    },
+    "anchors": [
+        {
+            "name": "体育馆外侧1F",
+            "alias": [],
+            "position": [
+                421,
+                -24,
+                18
+            ],
+            "description": ""
+        },
+        {
+            "name": "体育馆南侧露天楼梯2F",
+            "alias": [],
+            "position": [
+                422,
+                -15,
+                83
+            ],
+            "description": ""
+        },
+        {
+            "name": "体育馆北侧露天楼梯2F",
+            "alias": [],
+            "position": [
+                421,
+                -15,
+                -48
+            ],
+            "description": ""
+        },
+        {
+            "name": "万秀园后门",
+            "alias": [],
+            "position": [
+                403,
+                -20,
+                392
+            ],
+            "description": ""
+        },
+        {
+            "name": "万秀园前门",
+            "alias": [],
+            "position": [
+                398,
+                -20,
+                298
+            ],
+            "description": ""
+        },
+        {
+            "name": "物美超市正门",
+            "alias": [],
+            "position": [
+                78,
+                -23,
+                306
+            ],
+            "description": ""
+        },
+        {
+            "name": "排球网球场入口",
+            "alias": [],
+            "position": [
+                21,
+                -25,
+                -151
+            ],
+            "description": ""
+        },
+        {
+            "name": "操场一百米起点",
+            "alias": [],
+            "position": [
+                4,
+                -25,
+                -84
+            ],
+            "description": ""
+        },
+        {
+            "name": "学生活动中心正门",
+            "alias": [],
+            "position": [
+                76,
+                -25,
+                409
+            ],
+            "description": ""
+        },
+        {
+            "name": "研究生院大门",
+            "alias": [],
+            "position": [
+                389,
+                -25,
+                499
+            ],
+            "description": ""
+        },
+        {
+            "name": "校医院",
+            "alias": [],
+            "position": [
+                433,
+                -25,
+                625
+            ],
+            "description": ""
+        },
+        {
+            "name": "南二门",
+            "alias": [],
+            "position": [
+                372,
+                -25,
+                671
+            ],
+            "description": ""
+        },
+        {
+            "name": "12斋",
+            "alias": [],
+            "position": [
+                1,
+                -25,
+                625
+            ],
+            "description": ""
+        },
+        {
+            "name": "化生楼正门",
+            "alias": [],
+            "position": [
+                -180,
+                -25,
+                608
+            ],
+            "description": ""
+        },
+        {
+            "name": "南三门",
+            "alias": [],
+            "position": [
+                -218,
+                -25,
+                682
+            ],
+            "description": ""
+        },
+        {
+            "name": "冶金生态楼正门",
+            "alias": [],
+            "position": [
+                -255,
+                -25,
+                431
+            ],
+            "description": ""
+        },
+        {
+            "name": "鸿博园正门",
+            "alias": [],
+            "position": [
+                -241,
+                -23,
+                308
+            ],
+            "description": ""
+        },
+        {
+            "name": "鸿博园侧门",
+            "alias": [],
+            "position": [
+                -315,
+                -23,
+                302
+            ],
+            "description": ""
+        },
+        {
+            "name": "校史馆正门",
+            "alias": [],
+            "position": [
+                -478,
+                -25,
+                270
+            ],
+            "description": ""
+        },
+        {
+            "name": "银杏大道西",
+            "alias": [],
+            "position": [
+                -491,
+                -25,
+                155
+            ],
+            "description": ""
+        },
+        {
+            "name": "银杏大道东",
+            "alias": [],
+            "position": [
+                -241,
+                -25,
+                155
+            ],
+            "description": ""
+        },
+        {
+            "name": "图书馆后门",
+            "alias": [],
+            "position": [
+                -422,
+                -23,
+                46
+            ],
+            "description": ""
+        },
+        {
+            "name": "主楼后门",
+            "alias": [],
+            "position": [
+                -514,
+                -24,
+                26
+            ],
+            "description": ""
+        },
+        {
+            "name": "鼎新广场",
+            "alias": [],
+            "position": [
+                -633,
+                -25,
+                -346
+            ],
+            "description": ""
+        },
+        {
+            "name": "材料测试楼正门",
+            "alias": [],
+            "position": [
+                -622,
+                -25,
+                -238
+            ],
+            "description": ""
+        },
+        {
+            "name": "文法楼正门",
+            "alias": [],
+            "position": [
+                -787,
+                -25,
+                -239
+            ],
+            "description": ""
+        },
+        {
+            "name": "理化楼正门",
+            "alias": [],
+            "position": [
+                -726,
+                -25,
+                -152
+            ],
+            "description": ""
+        },
+        {
+            "name": "办公楼正门",
+            "alias": [],
+            "position": [
+                -725,
+                -25,
+                214
+            ],
+            "description": ""
+        },
+        {
+            "name": "主楼正门",
+            "alias": [],
+            "position": [
+                -612,
+                -24,
+                26
+            ],
+            "description": ""
+        },
+        {
+            "name": "毛主席像",
+            "alias": [],
+            "position": [
+                -690,
+                -21,
+                27
+            ],
+            "description": ""
+        },
+        {
+            "name": "求实广场",
+            "alias": [],
+            "position": [
+                -724,
+                -25,
+                28
+            ],
+            "description": ""
+        },
+        {
+            "name": "校徽池",
+            "alias": [],
+            "position": [
+                -786,
+                -25,
+                29
+            ],
+            "description": ""
+        },
+        {
+            "name": "西门广场",
+            "alias": [],
+            "position": [
+                -894,
+                -25,
+                30
+            ],
+            "description": ""
+        },
+        {
+            "name": "西大门",
+            "alias": [],
+            "position": [
+                -953,
+                -25,
+                30
+            ],
+            "description": ""
+        },
+        {
+            "name": "国卓院高工楼正门",
+            "alias": [],
+            "position": [
+                -874,
+                -25,
+                -234
+            ],
+            "description": ""
+        },
+        {
+            "name": "马克思主义学院正门",
+            "alias": [],
+            "position": [
+                -832,
+                -25,
+                -349
+            ],
+            "description": ""
+        },
+        {
+            "name": "土木环境楼正门",
+            "alias": [],
+            "position": [
+                -773,
+                -25,
+                -386
+            ],
+            "description": ""
+        },
+        {
+            "name": "机电楼机械单元正门",
+            "alias": [],
+            "position": [
+                -672,
+                -25,
+                -394
+            ],
+            "description": ""
+        },
+        {
+            "name": "机电楼计通单元正门",
+            "alias": [],
+            "position": [
+                -598,
+                -25,
+                -394
+            ],
+            "description": ""
+        },
+        {
+            "name": "逸夫楼地下室入口",
+            "alias": [],
+            "position": [
+                -540,
+                -25,
+                -372
+            ],
+            "description": ""
+        },
+        {
+            "name": "逸夫楼正门",
+            "alias": [],
+            "position": [
+                -526,
+                -25,
+                -250
+            ],
+            "description": ""
+        },
+        {
+            "name": "逸夫楼1F露天楼梯入口",
+            "alias": [],
+            "position": [
+                -431,
+                -18,
+                -326
+            ],
+            "description": ""
+        },
+        {
+            "name": "科技楼",
+            "alias": [],
+            "position": [
+                -308,
+                -25,
+                -269
+            ],
+            "description": ""
+        },
+        {
+            "name": "北侧门",
+            "alias": [],
+            "position": [
+                -205,
+                -25,
+                -223
+            ],
+            "description": ""
+        },
+        {
+            "name": "气膜馆",
+            "alias": [],
+            "position": [
+                -207,
+                -25,
+                -107
+            ],
+            "description": ""
+        },
+        {
+            "name": "足球场主入口",
+            "alias": [],
+            "position": [
+                -62,
+                -25,
+                112
+            ],
+            "description": ""
+        },
+        {
+            "name": "操场主入口",
+            "alias": [],
+            "position": [
+                -11,
+                -25,
+                197
+            ],
+            "description": ""
+        },
+        {
+            "name": "体育场主入口",
+            "alias": [],
+            "position": [
+                90,
+                -25,
+                262
+            ],
+            "description": ""
+        },
+        {
+            "name": "东门",
+            "alias": [],
+            "position": [
+                436,
+                -25,
+                277
+            ],
+            "description": ""
+        },
+        {
+            "name": "东侧门",
+            "alias": [],
+            "position": [
+                381,
+                -25,
+                265
+            ],
+            "description": ""
+        },
+        {
+            "name": "游泳馆",
+            "alias": [],
+            "position": [
+                452,
+                -15,
+                136
+            ],
+            "description": ""
+        },
+        {
+            "name": "体育馆3号门",
+            "alias": [],
+            "position": [
+                414,
+                -25,
+                -53
+            ],
+            "description": ""
+        },
+        {
+            "name": "主席台",
+            "alias": [],
+            "position": [
+                -9,
+                -25,
+                20
+            ],
+            "description": ""
+        },
+        {
+            "name": "五环广场",
+            "alias": [],
+            "position": [
+                334,
+                -25,
+                18
+            ],
+            "description": ""
+        }
+    ]
+}
