@@ -15,15 +15,13 @@ MineGuide 是一个运行在 Minecraft 中的 **AI 智能导游机器人**。玩
 3. 拥有一个 Minecraft Java 版客户端或服务器。
 4. 克隆本仓库到本地。
 
-### 安装依赖
+### 开始使用
 
-进入仓库根目录，执行：
+进入仓库根目录，执行下面命令安装依赖：
 
 ```bash
 pnpm install
 ```
-
-### 运行
 
 在运行程序前，请先阅读[配置指南](#配置指南)章节，并正确配置 `mg.config.env` 与景点数据。
 
@@ -35,15 +33,15 @@ pnpm dev
 
 智能体将尝试连接并加入 Minecraft 服务器。
 
-### 常用脚本
+### 常用命令
 
-| 命令 | 说明 |
-| --- | --- |
-| `pnpm dev` | 以 tsx 直接运行，开发调试用 |
-| `pnpm test` | 运行 vitest 单元测试 |
-| `pnpm typecheck` | TypeScript 类型检查 |
-| `pnpm build` | 打包为单文件 `dist/main.cjs`（需设置 `MC_VERSIONS`） |
-| `pnpm build:sea` | 构建单文件可执行程序（Windows 为 `.exe`，Linux/macOS 无扩展名） |
+| 命令             | 说明                                                        |
+| ---------------- | ----------------------------------------------------------- |
+| `pnpm dev`       | 以 tsx 直接运行程序，开发调试用                             |
+| `pnpm test`      | 运行 vitest 单元测试                                        |
+| `pnpm typecheck` | 运行 TypeScript 类型检查                                    |
+| `pnpm build`     | 打包为单文件 `dist/main.cjs` 代码，详见下方指引             |
+| `pnpm build:sea` | 构建为单文件可执行程序（Windows/Linux/macOS），详见下方指引 |
 
 ### 项目结构
 
@@ -63,6 +61,7 @@ src/chat/agent.ts      OpenAI 客户端、工具调用循环、流式输出、�
 src/chat/prompts.ts    导游人设与提示词
 src/chat/tools.ts      工具定义（Zod schema 与 JSON Schema）
 scripts/build-sea.mjs  SEA 构建脚本
+scripts/import-xaero.mjs  Xaero 路点导入脚本
 tests/                 vitest 单元测试
 data/                  景点数据
 ```
@@ -83,11 +82,9 @@ MC_VERSIONS=all pnpm build:sea
 $env:MC_VERSIONS = "1.20.4"; pnpm build:sea
 ```
 
-版本号会解析到 `minecraft-data` 的版本块，并自动带上其引用到的旧版本数据；无法解析时构建报错。若目标服务器版本不在所选集合内，运行时会连接失败，因此请按目标服务器版本构建。
+若目标服务器版本不在构建时所选的集合内，运行时会连接失败，因此请按目标服务器版本构建。
 
-构建脚本使用 Node.js 24 的 SEA（Single Executable Application）与 postject 注入，产物输出到 `build/`：Windows 为 `MineGuide-v<version>.exe`，Linux/macOS 为 `MineGuide-v<version>`（Linux 会自动补上可执行权限）。
-
-> **必须在目标平台上构建**：SEA 是把打包脚本注入本机 `node` 二进制，无法交叉编译（在 Windows 上只能产出 Windows 产物）。构建机需 Node >= 24，而运行产物无需安装 Node。Linux 依赖 glibc（不支持 Alpine 等 musl 发行版）；macOS 仅支持 arm64 且尚未验证。
+构建脚本使用 Node.js 的 SEA（Single Executable Application）与 postject 注入，产物输出到 `build/`,**必须在目标平台上构建**：Windows 为 `MineGuide-v<version>.exe`，Linux/macOS 为 `MineGuide-v<version>`（Linux 会自动补上可执行权限）。
 
 分发时请将 `mg.config.env` 与 `data/` 目录放在可执行文件**同目录**下：程序以可执行文件所在目录为基准查找配置与景点数据（开发模式下以工作目录为基准）。
 
@@ -101,21 +98,44 @@ $env:MC_VERSIONS = "1.20.4"; pnpm build:sea
 
 - `[Connection]`：Minecraft 服务器地址、端口与机器人用户名。
 - `[Scene]`：载入的景点数据文件（位于 `data/` 目录下）。
-- `[LLM]`：`model_name` 指定模型名称；`max_tool_subturns` 控制单条用户消息内最多的 LLM 生成次数（工具调用循环上限）；`max_context_tokens` 为上下文压缩阈值；`thinking` 为 `enabled` 或 `disabled`；`reasoning_effort` 为 `low`、`high` 或 `max`。出现未知键会在启动时报错。
-- `[LLMClient]`：OpenAI 兼容客户端参数，支持 `baseURL`、`apiKey`（必填）、`timeout`（单位：秒）、`maxRetries`、`defaultHeaders`（JSON 对象）。出现未知键会在启动时报错。
-- `[Debug]`：`enabled`（默认 `true`）控制是否启动网页调试页；`port`（默认 `25564`）为调试页端口。出现未知键会在启动时报错。日志级别由环境变量 `MG_LOG_LEVEL` 控制，不在此文件配置。
+- `[LLM]`：大语言模型配置。
+  - `model_name` 指定模型名称；
+  - `max_tool_subturns` 控制单条用户消息内最多的 LLM 生成次数（工具调用循环上限）；
+  - `max_context_tokens` 为上下文压缩阈值；
+  - `thinking` 为 `enabled` 或 `disabled`；
+  - `reasoning_effort` 为 `low`、`high` 或 `max`。
+- `[LLMClient]`：OpenAI 兼容客户端参数，支持 `baseURL`、`apiKey`（必填）、`timeout`（单位：秒）、`maxRetries`、`defaultHeaders`（JSON 对象）。
+- `[Debug]`：
+  - `enabled`（默认 `true`）控制是否启动网页调试页；
+  - `port`（默认 `25564`）为调试页端口。
+  - 日志级别由环境变量 `MG_LOG_LEVEL` 控制，不在此文件配置。
 
-> 对话记忆默认完整保留、不做截断，以维持前缀缓存命中；工具调用会产生 `reasoning_content` 与工具消息，均按原样回传给模型。
-> 
-> 当用户发送消息触发 Agent 时，若对话历史估算长度超过 `max_context_tokens`（默认 `50000`），程序会自动把最旧的对话历史交给 LLM 压缩成一条 `[上下文压缩摘要]` 系统记忆，并保留最近一段原文：按 token 预算保留，至少最近一个用户轮，工具调用与结果不会被拆断。首条系统提示（全部锚点信息）与最新用户消息不参与压缩；摘要失败时仅告警并保留完整历史。压缩是滚动式的，旧摘要会与新历史合并成单条新摘要。
+对话记忆默认完整保留、不做截断，以维持前缀缓存命中；工具调用会产生 `reasoning_content` 与工具消息，均按原样回传给模型。
 
-> 本项目仅支持标准 OpenAI 兼容接口，不再支持 USTB 专用客户端（原 `ustb_openai`）。
+当用户发送消息触发 Agent 时，若对话历史估算长度超过 `max_context_tokens`（默认 `50000`），程序会自动把最旧的对话历史交给 LLM 压缩成一条系统记忆，并保留最近一段原文：按 token 预算保留，至少最近一个用户轮，工具调用与结果不会被拆断。首条系统提示（全部锚点信息）与最新用户消息不参与压缩；摘要失败时仅告警并保留完整历史。压缩是滚动式的，旧摘要会与新历史合并成单条新摘要。
+
+本项目仅支持标准 OpenAI 兼容接口，不再支持 USTB 专用客户端（原 `ustb_openai`）。
 
 ### 景点数据配置文件
 
 文件夹 `data` 中，以 JSON 格式存储着景点数据（每个景点对应一张 Minecraft 地图），包括景点的基本信息（`meta`）与各锚点（`anchors`）的名称、别称、坐标与描述。您可以参照示例，根据您的需求来编写景点数据文件。在 `data` 文件夹下，可以存储多个景点数据文件，要想指定智能体所载入的景点，只需在 `mg.config.env` 中进行指定。
 
 > 旧版数据中的 `routes` 字段已废弃，校验时会被忽略。
+
+## 脚本工具
+
+### Xaero 路点导入
+
+`scripts/import-xaero.mjs` 可将 Xaero 小地图模组的本地路点批量转换为 MineGuide 景点数据，用于新增或校正 `anchors` 坐标：
+
+```bash
+node scripts/import-xaero.mjs -i <路点文件.txt> -o <景点数据.json>
+```
+
+- `-i/--input`：Xaero 路点 txt 文件，例如 `.../.minecraft/xaero/minimap/<世界名>/dim%0/mw0,-1,0_1.txt`。
+- `-o/--output`：输出的景点数据 JSON，后缀必须为 `.json`。
+
+脚本以路点名称为 Key：同名锚点仅更新 `position`，新名称则追加锚点。已有 JSON 的其余字段原样保留；若输出文件已存在，会先重命名为 `<原名>.bak.json` 再写入。被禁用的路点、空名称与坐标非法的行会被跳过，重名路点以最后一条为准并打印警告。
 
 ## 调试与日志
 
