@@ -1,7 +1,6 @@
 import OpenAI from 'openai';
 import type {
   ChatCompletionCreateParamsStreaming,
-  ChatCompletionMessageParam,
   ChatCompletionMessageToolCall,
 } from 'openai/resources/chat/completions';
 
@@ -10,8 +9,21 @@ import type { TokenUsage, ToolCallRecord } from '../debug/events';
 import { type RequestSpan, type RequestTiming, type Tracer, type TurnSpan, nullTracer } from '../debug/tracer';
 import { createLogger } from '../logger';
 import { formatPosition, type Position } from '../vector';
+import {
+  type ContextBaseline,
+  type MemoryMessage,
+  TAIL_BUDGET_RATIO,
+  buildTranscript,
+  estimateMemoryTokens,
+  findProtectedTailStart,
+  formatCompactPrompt,
+  formatSummaryMessage,
+  hasRemovableTurn,
+  summarizeConversation,
+} from './compact';
 import { formatAgentChat, formatAgentInit, formatAnchors } from './prompts';
 import { MOVE_TO_TOOL_NAME, TOOLS, moveToSchema } from './tools';
+import { type RawUsage, toTokenUsage } from './usage';
 
 const logger = createLogger('Agent');
 
@@ -34,23 +46,12 @@ interface DeepSeekDelta {
   }>;
 }
 
-interface RawUsage {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-  prompt_cache_hit_tokens?: number;
-  prompt_tokens_details?: { cached_tokens?: number };
-  completion_tokens_details?: { reasoning_tokens?: number };
-}
-
 interface PartialToolCall {
   index: number;
   id: string;
   name: string;
   arguments: string;
 }
-
-type MemoryMessage = ChatCompletionMessageParam & { reasoning_content?: string };
 
 interface AssistantTurn {
   content: string;
@@ -86,23 +87,6 @@ function buildAssistantMessage(
   return message;
 }
 
-function toTokenUsage(raw: RawUsage | null | undefined): TokenUsage | undefined {
-  if (raw === null || raw === undefined) {
-    return undefined;
-  }
-  const prompt = raw.prompt_tokens ?? 0;
-  const completion = raw.completion_tokens ?? 0;
-  const cached = raw.prompt_cache_hit_tokens ?? raw.prompt_tokens_details?.cached_tokens ?? 0;
-  return {
-    prompt,
-    completion,
-    reasoning: raw.completion_tokens_details?.reasoning_tokens ?? 0,
-    cached,
-    cacheMiss: Math.max(prompt - cached, 0),
-    total: raw.total_tokens ?? prompt + completion,
-  };
-}
-
 function formatSeconds(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
@@ -120,6 +104,9 @@ export class Agent {
   private readonly runtime: ToolRuntime;
   private readonly tracer: Tracer;
   private readonly memory: MemoryMessage[];
+  private baseline?: ContextBaseline;
+  private compactSummary?: string;
+  private compactSkippedWarned = false;
 
   constructor(config: MineGuideConfig, runtime: ToolRuntime, client?: OpenAI, tracer: Tracer = nullTracer) {
     this.client = client ?? new OpenAI(config.llmClient);
@@ -153,6 +140,7 @@ export class Agent {
 
     const span = this.tracer.beginTurn('chat', content);
     this.memory.push({ role: 'user', content });
+    await this.maybeCompact();
     try {
       yield* this.runTurn(span);
     } finally {
@@ -167,6 +155,77 @@ export class Agent {
       yield* this.runTurn(span);
     } finally {
       span.end();
+    }
+  }
+
+  private async maybeCompact(): Promise<void> {
+    const maxTokens = this.config.llmMaxContextTokens;
+    const baseline = this.baseline;
+    if (baseline === undefined) {
+      return;
+    }
+
+    const beforeTokens = baseline.promptTokens + estimateMemoryTokens(this.memory.slice(baseline.memoryLength));
+    if (beforeTokens <= maxTokens) {
+      return;
+    }
+
+    const tailStart = findProtectedTailStart(this.memory, Math.ceil(maxTokens * TAIL_BUDGET_RATIO));
+    if (!hasRemovableTurn(this.memory, tailStart)) {
+      if (!this.compactSkippedWarned) {
+        this.compactSkippedWarned = true;
+        logger.warn(
+          `Context is ${beforeTokens} tokens, over max_context_tokens (${maxTokens}), ` +
+            'but no removable turn is available, skipped compaction',
+        );
+      }
+      return;
+    }
+
+    const removed = this.memory.slice(1, tailStart);
+    const kept = this.memory.slice(tailStart);
+    const startedAt = Date.now();
+    try {
+      const prompt = formatCompactPrompt(this.compactSummary ?? '', buildTranscript(removed));
+      const result = await summarizeConversation(
+        this.client,
+        {
+          model: this.config.llmModelName,
+          thinking: this.config.llmThinking,
+          reasoningEffort: this.config.llmReasoningEffort,
+        },
+        prompt,
+      );
+      this.memory.splice(1, removed.length, formatSummaryMessage(result.summary));
+      this.compactSummary = result.summary;
+      this.baseline = { promptTokens: estimateMemoryTokens(this.memory), memoryLength: this.memory.length };
+      this.tracer.compact({
+        status: 'completed',
+        beforeTokens,
+        afterTokens: this.baseline.promptTokens,
+        removedMessages: removed.length,
+        keptMessages: kept.length,
+        durationMs: Date.now() - startedAt,
+        summary: result.summary,
+        usage: result.usage,
+      });
+      logger.info(
+        `Compacted context: ${beforeTokens} -> ${this.baseline.promptTokens} tokens, ` +
+          `${removed.length} messages summarized, ${kept.length} kept`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`Context compaction failed, keeping the full history: ${message}`);
+      this.tracer.compact({
+        status: 'error',
+        beforeTokens,
+        afterTokens: beforeTokens,
+        removedMessages: 0,
+        keptMessages: 0,
+        durationMs: Date.now() - startedAt,
+        summary: '',
+        error: message,
+      });
     }
   }
 
@@ -284,6 +343,10 @@ export class Agent {
         step: request.step,
         requestId: request.requestId,
       });
+    }
+
+    if (usage !== undefined) {
+      this.baseline = { promptTokens: usage.prompt, memoryLength: messages.length };
     }
 
     const tail = lineBuffer.trim();

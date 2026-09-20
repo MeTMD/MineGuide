@@ -99,6 +99,20 @@ export interface OutputEvent {
   text: string;
 }
 
+export interface CompactEvent {
+  kind: 'compact';
+  at: number;
+  status: 'completed' | 'error';
+  beforeTokens: number;
+  afterTokens: number;
+  removedMessages: number;
+  keptMessages: number;
+  durationMs: number;
+  summary: string;
+  error?: string;
+  usage?: TokenUsage;
+}
+
 export interface ErrorEvent {
   kind: 'error';
   at: number;
@@ -115,6 +129,7 @@ export type PipelineEvent =
   | ToolEndEvent
   | TurnEndEvent
   | OutputEvent
+  | CompactEvent
   | ErrorEvent;
 
 export type DebugRecord = PipelineRecord | LogRecord;

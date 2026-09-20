@@ -8,7 +8,7 @@ export const DEBUG_UI_HTML = `<!doctype html>
   :root {
     --bg: #ffffff; --panel: #f7f8fa; --border: #e3e6ea; --text: #1f2328; --muted: #6b7280;
     --input: #8b93a7; --model: #7c5cff; --model-lite: #c4b5fd; --tools: #f59e0b;
-    --ok: #16a34a; --err: #dc2626; --ctx: #0d9488; --user: #2563eb;
+    --ok: #16a34a; --err: #dc2626; --ctx: #0d9488; --user: #2563eb; --compact: #db2777;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font: 13px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; color: var(--text); background: var(--bg); }
@@ -37,6 +37,7 @@ export const DEBUG_UI_HTML = `<!doctype html>
   .block.model { background: var(--model); }
   .block.model .ttft { position: absolute; inset: 0 auto 0 0; background: var(--model-lite); border-radius: 4px 0 0 4px; }
   .block.tools { background: var(--tools); }
+  .block.compact { background: var(--compact); }
   .block.error { background: var(--err); }
   .block.sel { outline: 2px solid #111; z-index: 2; }
   .columns { display: flex; gap: 12px; margin-top: 12px; align-items: flex-start; }
@@ -51,6 +52,7 @@ export const DEBUG_UI_HTML = `<!doctype html>
   .tag.context { background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc; }
   .tag.user { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
   .tag.error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+  .tag.compact { background: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; }
   .card .meta { color: var(--muted); font-size: 11px; }
   .card .body { margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .detail { width: 420px; flex: 0 0 420px; max-height: calc(100vh - 220px); overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
@@ -96,6 +98,7 @@ export const DEBUG_UI_HTML = `<!doctype html>
     <option value="input">Input</option>
     <option value="assistant">Assistant</option>
     <option value="tool">Tool</option>
+    <option value="compact">Compact</option>
     <option value="error">Error</option>
   </select>
   <select id="log-level">
@@ -171,7 +174,7 @@ export const DEBUG_UI_HTML = `<!doctype html>
   }
 
   function derive() {
-    var reqs = {}, tools = {}, turns = {}, outputs = [], errors = [];
+    var reqs = {}, tools = {}, turns = {}, outputs = [], errors = [], compacts = [];
     var list = state.pipelineIds.map(function (id) { return state.pipeline.get(id); }).filter(Boolean);
     list.forEach(function (r) {
       if (r.kind === 'turn_start') { var t = turns[r.turn] || (turns[r.turn] = { turn: r.turn }); t.start = r.at; t.source = r.source; t.inputText = r.inputText; t.id = r.id; }
@@ -182,6 +185,7 @@ export const DEBUG_UI_HTML = `<!doctype html>
       else if (r.kind === 'tool_start') { var g = tools[r.callId] || (tools[r.callId] = { callId: r.callId }); g.turn = r.turn; g.step = r.step; g.requestId = r.requestId; g.name = r.name; g.arguments = r.arguments; g.start = r.at; g.startId = r.id; }
       else if (r.kind === 'tool_end') { var g2 = tools[r.callId] || (tools[r.callId] = { callId: r.callId }); g2.end = r.at; g2.status = r.status; g2.result = r.result; g2.durationMs = r.durationMs; g2.endId = r.id; }
       else if (r.kind === 'output') { outputs.push(r); }
+      else if (r.kind === 'compact') { compacts.push(r); }
       else if (r.kind === 'error') { errors.push(r); }
     });
     var reqList = Object.keys(reqs).map(function (k) { return reqs[k]; });
@@ -193,7 +197,7 @@ export const DEBUG_UI_HTML = `<!doctype html>
     toolList.forEach(function (g) { if (!g.end) inProgress = true; });
     if (!isFinite(t0)) t0 = Date.now();
     if (!isFinite(t1)) t1 = t0;
-    return { list: list, reqs: reqs, reqList: reqList, toolList: toolList, turnList: turnList, outputs: outputs, errors: errors, t0: t0, t1: t1, inProgress: inProgress, count: list.length };
+    return { list: list, reqs: reqs, reqList: reqList, toolList: toolList, turnList: turnList, outputs: outputs, errors: errors, compacts: compacts, t0: t0, t1: t1, inProgress: inProgress, count: list.length };
   }
 
   function laneBlock(left, width, cls, title, kind, id) {
@@ -225,6 +229,9 @@ export const DEBUG_UI_HTML = `<!doctype html>
     });
     d.outputs.forEach(function (o) {
       inputHtml += laneBlock(left(o.at), width(o.at, o.at + 400), 'input' + (isSel('turn', o.turn) ? ' sel' : ''), 'Output: ' + clip(o.text, 80), 'turn', o.turn);
+    });
+    d.compacts.forEach(function (c) {
+      inputHtml += laneBlock(left(c.at), width(c.at, c.at + 400), 'compact' + (isSel('compact', c.id) ? ' sel' : ''), 'Compact: ' + clip(c.status === 'error' ? c.error : c.summary, 80), 'compact', c.id);
     });
     d.reqList.forEach(function (q) {
       if (q.start == null) return;
@@ -268,6 +275,9 @@ export const DEBUG_UI_HTML = `<!doctype html>
     });
     d.errors.forEach(function (e) {
       items.push({ id: e.id, kind: 'error', ref: e.id, cat: 'error', tag: 'error', label: 'ERROR', title: e.scope, body: e.message, search: e.message });
+    });
+    d.compacts.forEach(function (c) {
+      items.push({ id: c.id, kind: 'compact', ref: c.id, cat: 'compact', tag: c.status === 'error' ? 'error' : 'compact', label: 'COMPACT', title: c.status === 'error' ? 'Context compaction failed' : 'Context compacted', body: c.status === 'error' ? c.error : c.summary, meta: c.beforeTokens + ' → ' + c.afterTokens + ' tok', search: c.summary + ' ' + (c.error || '') });
     });
     items.sort(function (a, b) { return a.id - b.id; });
     return items;
@@ -346,6 +356,20 @@ export const DEBUG_UI_HTML = `<!doctype html>
     } else if (kind === 'error') {
       var errRec = state.pipeline.get(id);
       html += '<div class="head"><span class="tag error">ERROR</span></div><div class="pane"><pre>' + esc(JSON.stringify(errRec, null, 2)) + '</pre></div>';
+    } else if (kind === 'compact') {
+      var c = state.pipeline.get(id);
+      if (!c) { el.innerHTML = '<div class="empty">Compact data unavailable</div>'; return; }
+      html += '<div class="head"><span class="tag ' + (c.status === 'error' ? 'error' : 'compact') + '">COMPACT</span><span class="meta">' + fmtTime(c.at) + '</span></div>';
+      html += detailTabs(['summary', 'raw']);
+      html += '<div class="pane" data-pane="summary"><dl class="kv">' +
+        '<dt>Status</dt><dd><span class="chip ' + (c.status === 'error' ? 'err' : 'ok') + '">' + esc(c.status) + '</span></dd>' +
+        '<dt>Duration</dt><dd>' + fmtDur(c.durationMs) + '</dd>' +
+        '<dt>Tokens</dt><dd>' + c.beforeTokens + ' → ' + c.afterTokens + '</dd>' +
+        '<dt>Messages</dt><dd>' + c.removedMessages + ' summarized, ' + c.keptMessages + ' kept</dd>' +
+        (c.usage ? '<dt>Summary call</dt><dd>' + c.usage.total + ' tok (prompt ' + c.usage.prompt + ')</dd>' : '') +
+        (c.error ? '<dt>Error</dt><dd style="color:var(--err)">' + esc(c.error) + '</dd>' : '') +
+        '</dl>' + (c.summary ? '<div class="hint" style="margin-top:8px">Summary</div><div class="reason">' + esc(c.summary) + '</div>' : '') + '</div>';
+      html += '<div class="pane" data-pane="raw"><pre>' + esc(JSON.stringify(c, null, 2)) + '</pre></div>';
     } else {
       var t = null;
       d.turnList.forEach(function (x) { if (String(x.turn) === String(id)) t = x; });
@@ -548,7 +572,7 @@ export const DEBUG_UI_HTML = `<!doctype html>
 
   function openStream(lastId) {
     var es = new EventSource(api('/api/events') + '&lastEventId=' + lastId);
-    var names = ['turn_start', 'request_start', 'request_first_token', 'request_end', 'tool_start', 'tool_end', 'turn_end', 'output', 'error', 'log'];
+    var names = ['turn_start', 'request_start', 'request_first_token', 'request_end', 'tool_start', 'tool_end', 'turn_end', 'output', 'compact', 'error', 'log'];
     names.forEach(function (name) {
       es.addEventListener(name, function (e) {
         try { onRecord(JSON.parse(e.data)); } catch (err) { /* ignore */ }

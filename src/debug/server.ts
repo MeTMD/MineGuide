@@ -138,6 +138,7 @@ export class DebugServer {
       model: this.config.llmModelName,
       thinking: this.config.llmThinking,
       reasoningEffort: this.config.llmReasoningEffort,
+      maxContextTokens: this.config.llmMaxContextTokens,
       scene: {
         name: this.config.scene.meta.name,
         location: this.config.scene.meta.location,

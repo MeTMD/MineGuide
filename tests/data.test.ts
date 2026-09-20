@@ -60,6 +60,7 @@ describe('parseIni', () => {
   it('defaults [LLM] options', () => {
     const parsed = parseIni(buildIni());
     expect(parsed.maxToolSubturns).toBe(4);
+    expect(parsed.maxContextTokens).toBe(50000);
     expect(parsed.thinking).toBe('enabled');
     expect(parsed.reasoningEffort).toBe('high');
   });
@@ -67,10 +68,17 @@ describe('parseIni', () => {
   it('parses [LLM] options', () => {
     const parsed = parseIni(
       buildIni({
-        llm: ['model_name = gpt-4o', 'max_tool_subturns = 2', 'thinking = disabled', 'reasoning_effort = low'],
+        llm: [
+          'model_name = gpt-4o',
+          'max_tool_subturns = 2',
+          'max_context_tokens = 12345',
+          'thinking = disabled',
+          'reasoning_effort = low',
+        ],
       }),
     );
     expect(parsed.maxToolSubturns).toBe(2);
+    expect(parsed.maxContextTokens).toBe(12345);
     expect(parsed.thinking).toBe('disabled');
     expect(parsed.reasoningEffort).toBe('low');
   });
@@ -146,6 +154,9 @@ describe('parseIni', () => {
       ConfigValueError,
     );
     expect(() => parseIni(buildIni({ llm: ['model_name = m', 'max_tool_subturns = 0'] }))).toThrow(
+      ConfigValueError,
+    );
+    expect(() => parseIni(buildIni({ llm: ['model_name = m', 'max_context_tokens = 0'] }))).toThrow(
       ConfigValueError,
     );
     expect(() => parseIni(buildIni({ llm: ['model_name = m', 'thinking = off'] }))).toThrow(ConfigValueError);

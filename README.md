@@ -101,11 +101,13 @@ $env:MC_VERSIONS = "1.20.4"; pnpm build:sea
 
 - `[Connection]`：Minecraft 服务器地址、端口与机器人用户名。
 - `[Scene]`：载入的景点数据文件（位于 `data/` 目录下）。
-- `[LLM]`：`model_name` 指定模型名称；`max_tool_subturns` 控制单条用户消息内最多的 LLM 生成次数（工具调用循环上限）；`thinking` 为 `enabled` 或 `disabled`；`reasoning_effort` 为 `low`、`high` 或 `max`。出现未知键会在启动时报错。
+- `[LLM]`：`model_name` 指定模型名称；`max_tool_subturns` 控制单条用户消息内最多的 LLM 生成次数（工具调用循环上限）；`max_context_tokens` 为上下文压缩阈值；`thinking` 为 `enabled` 或 `disabled`；`reasoning_effort` 为 `low`、`high` 或 `max`。出现未知键会在启动时报错。
 - `[LLMClient]`：OpenAI 兼容客户端参数，支持 `baseURL`、`apiKey`（必填）、`timeout`（单位：秒）、`maxRetries`、`defaultHeaders`（JSON 对象）。出现未知键会在启动时报错。
 - `[Debug]`：`enabled`（默认 `true`）控制是否启动网页调试页；`port`（默认 `25564`）为调试页端口。出现未知键会在启动时报错。日志级别由环境变量 `MG_LOG_LEVEL` 控制，不在此文件配置。
 
-> 对话记忆完整保留、不做截断，以维持前缀缓存命中；工具调用会产生 `reasoning_content` 与工具消息，均按原样回传给模型。
+> 对话记忆默认完整保留、不做截断，以维持前缀缓存命中；工具调用会产生 `reasoning_content` 与工具消息，均按原样回传给模型。
+> 
+> 当用户发送消息触发 Agent 时，若对话历史估算长度超过 `max_context_tokens`（默认 `50000`），程序会自动把最旧的对话历史交给 LLM 压缩成一条 `[上下文压缩摘要]` 系统记忆，并保留最近一段原文：按 token 预算保留，至少最近一个用户轮，工具调用与结果不会被拆断。首条系统提示（全部锚点信息）与最新用户消息不参与压缩；摘要失败时仅告警并保留完整历史。压缩是滚动式的，旧摘要会与新历史合并成单条新摘要。
 
 > 本项目仅支持标准 OpenAI 兼容接口，不再支持 USTB 专用客户端（原 `ustb_openai`）。
 
@@ -144,7 +146,7 @@ $env:MG_LOG_LEVEL = "debug"; pnpm dev
 在浏览器中打开该地址即可实时观测 Agent pipeline：
 
 - **时间线**：`Input` / `Model` / `Tools` 三条泳道，`Model` 块中浅色部分表示 TTFT，进行中的块会实时增长；点击可查看详情。
-- **事件流**：输入（USER / CONTEXT）、`ASSISTANT`（标注 `Turn n · Step m`）、`TOOL`、`ERROR` 卡片。
+- **事件流**：输入（USER / CONTEXT）、`ASSISTANT`（标注 `Turn n · Step m`）、`TOOL`、`COMPACT`、`ERROR` 卡片。
 - **详情面板**：`Summary`（来源、状态、token 用量、开始时间、总耗时、TTFT、生成耗时、吞吐）、`Preview`（本次请求的完整消息）、`Raw`（原始请求与响应 JSON）。
 - **Logs 标签**：与 pipeline 事件同一时间轴，可按级别与关键字过滤。
 - 顶栏可暂停自动滚动、按类型/文本过滤，以及清空当前缓冲。

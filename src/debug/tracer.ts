@@ -40,9 +40,22 @@ export interface TurnSpan {
   end(): void;
 }
 
+export interface CompactInfo {
+  status: 'completed' | 'error';
+  beforeTokens: number;
+  afterTokens: number;
+  removedMessages: number;
+  keptMessages: number;
+  durationMs: number;
+  summary: string;
+  error?: string;
+  usage?: TokenUsage;
+}
+
 export interface Tracer {
   beginTurn(source: TurnSource, inputText: string): TurnSpan;
   command(inputText: string, outputText: string): void;
+  compact(info: CompactInfo): void;
   error(scope: string, message: string): void;
 }
 
@@ -183,6 +196,10 @@ export class DebugTracer implements Tracer {
     this.hub.pushPipeline({ kind: 'turn_end', at, turn, durationMs: 0 });
   }
 
+  compact(info: CompactInfo): void {
+    this.hub.pushPipeline({ kind: 'compact', at: Date.now(), ...info });
+  }
+
   error(scope: string, message: string): void {
     this.hub.pushPipeline({ kind: 'error', at: Date.now(), scope, message });
   }
@@ -212,5 +229,6 @@ const noopTurnSpan: TurnSpan = {
 export const nullTracer: Tracer = {
   beginTurn: () => noopTurnSpan,
   command: () => {},
+  compact: () => {},
   error: () => {},
 };

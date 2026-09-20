@@ -70,6 +70,7 @@ export interface MineGuideConfig {
   username: string;
   llmModelName: string;
   llmMaxToolSubturns: number;
+  llmMaxContextTokens: number;
   llmThinking: LlmThinking;
   llmReasoningEffort: LlmReasoningEffort;
   llmClient: LlmClientOptions;
@@ -83,6 +84,7 @@ interface ParsedIni {
   username: string;
   modelName: string;
   maxToolSubturns: number;
+  maxContextTokens: number;
   thinking: LlmThinking;
   reasoningEffort: LlmReasoningEffort;
   client: LlmClientOptions;
@@ -92,10 +94,17 @@ interface ParsedIni {
 
 type IniSection = Record<string, string>;
 
-const LLM_KEYS: readonly string[] = ['model_name', 'max_tool_subturns', 'thinking', 'reasoning_effort'];
+const LLM_KEYS: readonly string[] = [
+  'model_name',
+  'max_tool_subturns',
+  'max_context_tokens',
+  'thinking',
+  'reasoning_effort',
+];
 const CLIENT_KEYS: readonly string[] = ['baseURL', 'apiKey', 'timeout', 'maxRetries', 'defaultHeaders'];
 const DEBUG_KEYS: readonly string[] = ['enabled', 'port'];
 const DEFAULT_MAX_TOOL_SUBTURNS = 4;
+const DEFAULT_MAX_CONTEXT_TOKENS = 50000;
 const DEFAULT_THINKING: LlmThinking = 'enabled';
 const DEFAULT_REASONING_EFFORT: LlmReasoningEffort = 'high';
 const DEFAULT_DEBUG_ENABLED = true;
@@ -118,6 +127,7 @@ export function parseConfig(configText: string, sceneText: string): MineGuideCon
     username: parsed.username,
     llmModelName: parsed.modelName,
     llmMaxToolSubturns: parsed.maxToolSubturns,
+    llmMaxContextTokens: parsed.maxContextTokens,
     llmThinking: parsed.thinking,
     llmReasoningEffort: parsed.reasoningEffort,
     llmClient: parsed.client,
@@ -145,6 +155,7 @@ export function parseIni(configText: string): ParsedIni {
     username: requireKey(connection, 'username'),
     modelName: requireKey(llm, 'model_name'),
     maxToolSubturns: parseMaxToolSubturns(llm['max_tool_subturns']),
+    maxContextTokens: parseMaxContextTokens(llm['max_context_tokens']),
     thinking: parseThinking(llm['thinking']),
     reasoningEffort: parseReasoningEffort(llm['reasoning_effort']),
     client: parseClientOptions(llmClient),
@@ -182,6 +193,7 @@ export function loadConfig(configPath: string, dataDir: string): MineGuideConfig
     username: parsed.username,
     llmModelName: parsed.modelName,
     llmMaxToolSubturns: parsed.maxToolSubturns,
+    llmMaxContextTokens: parsed.maxContextTokens,
     llmThinking: parsed.thinking,
     llmReasoningEffort: parsed.reasoningEffort,
     llmClient: parsed.client,
@@ -234,6 +246,17 @@ function parseMaxToolSubturns(raw: string | undefined): number {
     throw new ConfigValueError(`Invalid max_tool_subturns value "${raw}"`);
   }
   return subturns;
+}
+
+function parseMaxContextTokens(raw: string | undefined): number {
+  if (raw === undefined) {
+    return DEFAULT_MAX_CONTEXT_TOKENS;
+  }
+  const tokens = Number.parseInt(raw, 10);
+  if (!Number.isInteger(tokens) || tokens < 1) {
+    throw new ConfigValueError(`Invalid max_context_tokens value "${raw}"`);
+  }
+  return tokens;
 }
 
 function parseThinking(raw: string | undefined): LlmThinking {

@@ -41,6 +41,8 @@ interface FakeParams {
   tools?: Array<{ function: { name: string } }>;
   thinking?: { type: string };
   reasoning_effort?: string;
+  stream?: boolean;
+  max_tokens?: number;
 }
 
 type StreamFactory = () => AsyncGenerator<unknown>;
@@ -62,7 +64,27 @@ function toolCallStream(id: string, name: string, argumentChunks: string[]): Str
   };
 }
 
-function createFakeClient(factories: StreamFactory[]) {
+function usageStream(chunks: string[], promptTokens: number): StreamFactory {
+  return async function* generate() {
+    for (const content of chunks) {
+      yield { choices: [{ delta: { content } }] };
+    }
+    yield {
+      choices: [{ delta: {}, finish_reason: 'stop' }],
+      usage: { prompt_tokens: promptTokens, completion_tokens: 2, total_tokens: promptTokens + 2 },
+    };
+  };
+}
+
+function summaryResponse(content: string) {
+  return () =>
+    Promise.resolve({
+      choices: [{ message: { content } }],
+      usage: { prompt_tokens: 20, completion_tokens: 5, total_tokens: 25 },
+    });
+}
+
+function createFakeClient(factories: Array<() => unknown>) {
   const calls: FakeParams[] = [];
   let index = 0;
   const create = (params: FakeParams) => {
@@ -291,6 +313,111 @@ describe('Agent', () => {
 
     const toolEnd = records.find((record) => record.kind === 'tool_end');
     expect(toolEnd?.kind === 'tool_end' ? toolEnd.status : '').toBe('completed');
+  });
+
+  it('compacts the context when it exceeds max_context_tokens', async () => {
+    const { client, calls } = createFakeClient([
+      usageStream(['回答\n'], 50),
+      summaryResponse('摘要'),
+      usageStream(['好的\n'], 10),
+    ]);
+    const hub = new DebugEventHub();
+    const agent = new Agent(
+      makeConfig(['max_context_tokens = 40']),
+      createRuntime().runtime,
+      client,
+      new DebugTracer(hub),
+    );
+
+    await collect(agent.chat('Alice', USER, SELF, 'first'));
+    await collect(agent.chat('Alice', USER, SELF, 'second'));
+
+    expect(calls).toHaveLength(3);
+    const summaryCall = calls[1];
+    expect(summaryCall?.stream).toBe(false);
+    expect(summaryCall?.max_tokens).toBe(2000);
+    expect(summaryCall?.thinking).toEqual({ type: 'enabled' });
+    expect(summaryCall?.reasoning_effort).toBe('high');
+    expect(String(summaryCall?.messages[0]?.content)).toContain('待压缩的对话记录');
+
+    const second = calls[2]?.messages ?? [];
+    expect(second.map((message) => message.role)).toEqual(['system', 'system', 'user']);
+    expect(String(second[1]?.content)).toBe('[上下文压缩摘要]\n摘要');
+    expect(String(second[2]?.content)).toContain('second');
+
+    const compact = hub.pipelineRecords().find((record) => record.kind === 'compact');
+    expect(compact?.kind === 'compact' ? compact.status : '').toBe('completed');
+    expect(compact?.kind === 'compact' ? compact.removedMessages : -1).toBe(2);
+    expect(compact?.kind === 'compact' ? compact.keptMessages : -1).toBe(1);
+    expect(compact?.kind === 'compact' ? compact.usage?.total : 0).toBe(25);
+  });
+
+  it('keeps the history when it stays below max_context_tokens', async () => {
+    const { client, calls } = createFakeClient([usageStream(['回答\n'], 50), usageStream(['好的\n'], 10)]);
+
+    const agent = new Agent(makeConfig(), createRuntime().runtime, client);
+    await collect(agent.chat('Alice', USER, SELF, 'first'));
+    await collect(agent.chat('Alice', USER, SELF, 'second'));
+
+    expect(calls).toHaveLength(2);
+    expect(calls.every((call) => call.stream !== false)).toBe(true);
+    expect((calls[1]?.messages ?? []).map((message) => message.role)).toEqual([
+      'system',
+      'user',
+      'assistant',
+      'user',
+    ]);
+  });
+
+  it('keeps the history when the summary call fails', async () => {
+    const failing = () => {
+      throw new Error('boom');
+    };
+    const { client, calls } = createFakeClient([
+      usageStream(['回答\n'], 50),
+      failing,
+      usageStream(['好的\n'], 10),
+    ]);
+    const hub = new DebugEventHub();
+    const agent = new Agent(
+      makeConfig(['max_context_tokens = 40']),
+      createRuntime().runtime,
+      client,
+      new DebugTracer(hub),
+    );
+
+    await collect(agent.chat('Alice', USER, SELF, 'first'));
+    await collect(agent.chat('Alice', USER, SELF, 'second'));
+
+    expect((calls[2]?.messages ?? []).map((message) => message.role)).toEqual([
+      'system',
+      'user',
+      'assistant',
+      'user',
+    ]);
+    const compact = hub.pipelineRecords().find((record) => record.kind === 'compact');
+    expect(compact?.kind === 'compact' ? compact.status : '').toBe('error');
+    expect(compact?.kind === 'compact' ? compact.error : '').toBe('boom');
+  });
+
+  it('warns once and skips compaction when no old turn can be removed', async () => {
+    const { client, calls } = createFakeClient([
+      usageStream(['回答\n'], 2000),
+      usageStream(['回答\n'], 2000),
+      usageStream(['回答\n'], 2000),
+    ]);
+
+    const agent = new Agent(makeConfig(['max_context_tokens = 1000']), createRuntime().runtime, client);
+    await collect(agent.chat('Alice', USER, SELF, 'first'));
+    await collect(agent.chat('Alice', USER, SELF, 'second'));
+    await collect(agent.chat('Alice', USER, SELF, 'third'));
+
+    expect(calls).toHaveLength(3);
+    expect(calls.every((call) => call.stream !== false)).toBe(true);
+    const warnings = vi
+      .mocked(process.stderr.write)
+      .mock.calls.filter((call) => String(call[0]).includes('skipped compaction'));
+    expect(warnings).toHaveLength(1);
   });
 
   it('announces navigation events through the same loop', async () => {
